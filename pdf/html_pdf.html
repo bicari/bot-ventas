@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; }
+    header { text-align: right; margin-bottom: 20px; }
+    h1 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    .footer { margin-top: 30px; text-align: right; font-weight: bold; }
+    .bill-ship { display: flex; justify-content: space-between; margin-top: 30px; }
+    .bill-ship div { width: 45%; }
+  </style>
+</head>
+<body>
+  <header>
+    <p>Date: {{ date }}</p>
+    <p>Invoice Nr: {{ invoice_number }}</p>
+    <p>Due Date: {{ due_date }}</p>
+  </header>
+
+  <h1>INVOICE</h1>
+
+  <div class="bill-ship">
+    <div>
+      <h3>Bill To</h3>
+      <p>{{ bill_to.name }}</p>
+      <p>{{ bill_to.address }}</p>
+      <p>{{ bill_to.city }}</p>
+    </div>
+    <div>
+      <h3>Ship To</h3>
+      <p>{{ ship_to.name }}</p>
+      <p>{{ ship_to.address }}</p>
+      <p>{{ ship_to.city }}</p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Price</th>
+        <th>Quantity</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td>${{ item.price }}</td>
+        <td>{{ item.quantity }}</td>
+        <td>${{ item.total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    TOTAL: ${{ total }}
+  </div>
+</body>
+</html>

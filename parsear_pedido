@@ -1,0 +1,26 @@
+class PedidoParser:
+    def parse(self, text_msg: list[str]) -> dict:
+        raise NotImplementedError
+
+
+class PedidoTextoParser(PedidoParser):
+    def parse(self, text_msg: list[str]) -> dict:
+        largo_mensaje = len(text_msg)
+        products = {}
+        for linea in text_msg[1:-2]:
+            list_products = linea.split()
+            products[list_products[0]] = list_products[1]
+
+        return {
+            "cliente": text_msg[0],
+            "productos": products,
+            "precio": text_msg[largo_mensaje - 2],
+            "comentario": text_msg[largo_mensaje - 1],
+        }
+
+class ParserFactory:
+    @staticmethod
+    def get_parser(tipo: str) -> PedidoParser:
+        if tipo == "texto":
+            return PedidoTextoParser()
+        raise ValueError("Tipo de mensaje no soportado")
