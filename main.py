@@ -37,10 +37,10 @@ async def lifespan(app: fastapi.FastAPI):
 
 fastapi_app = fastapi.FastAPI()
 wa = WhatsApp(
-    phone_id='788035891058430',
-    token='EAAR6yERULLYBPHkeuV3aRnZCZBCtW0RkYssTx4OTO7BsCDmvJntOANocRREVGyR7jZBOIpGaeVtGusSkvZCde9qk4ZBZCMRI2SXI4BHqv9Lhn65XgySrPg2jgUv0Y8foUmJbzeytfM3xKuZAK3wA3xdNQKsmS3ZApStEmeLztn58qe252josZCfCqGxsplcDMokZC5IQZDZD',
+    phone_id=config('PHONE_ID'),
+    token=config('TOKEN'),
     server=fastapi_app,
-    verify_token='XYZ123',
+    verify_token=config('VERIFY_TOKEN'),
 )
 # flows = wa.get_flows(waba_id='1152956486695534',phone_number_id='788035891058430')
 # for flow in flows:
