@@ -2,6 +2,8 @@ import pyodbc
 from decouple import config
 from datetime import datetime
 from pydbisam import PyDBISAM
+import uuid
+from datetime import datetime
 
 class DBISAMDatabase:
     def __init__(self):
@@ -14,6 +16,40 @@ class DBISAMDatabase:
         conn = pyodbc.connect(f'DSN={self.dsn};CatalogName={self.catalog}')
         return conn
     
+    def consultar_vendedores_con_acceso(self):
+        try:
+            with self.connect_dbisam() as conn:
+                with conn.cursor() as cursor:
+                    vendedores=cursor.execute("SELECT FV_TELEFONOS FROM SVENDEDORES WHERE FV_STATUS = 1 --AND FV_ACCESOWHATSAPP = 1").fetchall()
+                    if vendedores is None:
+                        return None
+                    return [vendedor.FV_TELEFONOS for vendedor in vendedores]    
+        except Exception as e:
+            print(str(e))
+
+    def consultar_vendedor(self, telefono: str):
+        try:
+            with self.connect_dbisam() as conn:
+                with conn.cursor() as cursor:
+                    vendedor=cursor.execute(f"SELECT FV_CODIGO, FV_DESCRIPCION FROM SVENDEDORES WHERE FV_TELEFONOS = '{telefono}' AND FV_STATUS = 1").fetchone()
+                    if vendedor is None:
+                        return None
+                    return vendedor.FV_CODIGO    
+        except Exception as e:
+            print(str(e))
+
+    def consultar_cliente(self, cliente: str, vendedor:str):
+        try:
+            with self.connect_dbisam() as conn:
+                with conn.cursor() as cursor:
+                    cliente_encontrado=cursor.execute(f"SELECT FC_CODIGO, FC_DESCRIPCION FROM SCLIENTES WHERE FC_CODIGO = '{cliente}' AND FC_VENDEDOR = '{vendedor}' AND FC_STATUS = 1").fetchone()
+                    if cliente_encontrado is None:
+                        return None
+                    return cliente_encontrado.FC_DESCRIPCION    
+        except Exception as e:
+            print(str(e))
+            
+
     def a2invcostosprecios(self):
         try: 
             with self.connect_dbisam() as conn:
@@ -40,30 +76,163 @@ class DBISAMDatabase:
         try:
             precios = {'P1': 'P01', 'P2': 'P02', 'P3': 'P03'}
             parse_products = '(' +  ','.join(map(lambda x: f"'{x}'", productos)) + ')' 
-            print(parse_products)
+            
             with self.connect_dbisam() as conn:
                 with conn.cursor() as cursor:
-                    productos=cursor.execute(f"""SELECT FI_CODIGO, FI_DESCRIPCION, 
-                                     CASE WHEN FIC_IMP01ACTIVO = 1 THEN ROUND(FIC_{precios[tipo_precio] if tipo_precio in precios.keys() else 'P01'}PRECIOTOTALEXT * 1.16,2)
-                                          WHEN FIC_IMP02ACTIVO = 1 THEN ROUND(FIC_{precios[tipo_precio] if tipo_precio in precios.keys() else 'P01'}PRECIOTOTALEXT * 1.08,2)
-                                     ELSE FIC_P01PRECIOTOTALEXT
-                                     END AS PRECIO 
+                    productos=cursor.execute(f"""SELECT FI_CODIGO, 
+                                        CASE WHEN FIC_IMP01ACTIVO = 1 AND FIC_IMP01EXENTO = 0 THEN 16
+                                             WHEN FIC_IMP02ACTIVO = 1 AND FIC_IMP01EXENTO = 0 THEN 8
+                                             WHEN FIC_IMP01ACTIVO = 0 AND FIC_IMP01EXENTO = 1 THEN 0
+                                        ELSE 0
+                                        END AS IMPUESTO,
+                                        FIC_{precios.get(tipo_precio)}PRECIOTOTALEXT             
                                      FROM SINVENTARIO
                                      INNER JOIN A2INVCOSTOSPRECIOS ON FIC_CODEITEM = FI_CODIGO
                                      WHERE FI_STATUS = 1 AND FI_CODIGO IN {parse_products}""").fetchall()
                     print(productos)
+                    return productos    
         except Exception as e:
             print(str(e))
             return str(e)   
 
-    async def insert_pedidos(self, pedido):
-        async with await self.connect() as conn:
-            async with await conn.cursor() as cursor:
-                await cursor.execute("""INSERT INTO SOPERACIONINV (PEDIDO, CLIENTE, FECHA, TOTAL)
-                                        VALUES (?, ?, ?, ?)""",
-                                        pedido['pedido'], pedido['cliente'], pedido['fecha'], pedido['total'])
-                await conn.commit()      
-
+    def insert_pedidos(self, pedido):
+        try:
+            detalle_query = []
+            linea = 0
+            ID_PEDIDO = f"WS{uuid.uuid4().hex[:10].upper()}"  
+            for codigo, detalles in pedido['productos'].items():
+                    detalle_query.append(f"""INSERT INTO SDETALLEVENTA 
+                                                        (FDI_DOCUMENTO,
+                                                        FDI_CLIENTEPROVEEDOR,
+                                                        FDI_STATUS,
+                                                        FDI_MONEDA,
+                                                        FDI_VISIBLE,
+                                                        FDI_DEPOSITOSOURCE,
+                                                        FDI_USADEPOSITOS, 
+                                                        FDI_TIPOOPERACION, 
+                                                        FDI_CODIGO, 
+                                                        FDI_CANTIDAD,
+                                                        FDI_CANTIDADPENDIENTE, 
+                                                        FDI_PRECIODEVENTA, 
+                                                        FDI_PRECIOBASECOMISION, 
+                                                        FDI_OPERACION_AUTOINCREMENT, 
+                                                        FDI_LINEA,
+                                                        FDI_IMPUESTO1,
+                                                        FDI_PORCENTIMPUESTO1,
+                                                        FDI_MONTOIMPUESTO1,
+                                                        FDI_PORCENTDESCPARCIAL,
+                                                        FDI_DESCUENTOPARCIAL,
+                                                        FDI_PRECIOSINDESCUENTO,
+                                                        FDI_PRECIOCONDESCUENTO,
+                                                        FDI_PRECIODEVENTA,
+                                                        FDI_UNDDESCARGA,
+                                                        FDI_UNDCAPACIDAD,
+                                                        FDI_VENDEDORASIGNADO,
+                                                        FDI_PRECIOBASECOMISION,
+                                                        FDI_COMISIONBLOQUEADA,
+                                                        FDI_FECHAOPERACION
+                                                        )
+                                              VALUES ('{pedido['id']}',
+                                                        '{pedido['cliente']}', 
+                                                        4,
+                                                        2,
+                                                        1,
+                                                        1,
+                                                        1,
+                                                        10, 
+                                                        '{codigo}', 
+                                                        {detalles['cantidad']},
+                                                        {detalles['cantidad']}, 
+                                                        {detalles['precio']}, 
+                                                        {detalles['subtotal']},
+                                                        LASTAUTOINC('SOPERACIONINV'), 
+                                                        {linea},
+                                                        {detalles['impuesto']},
+                                                        {1 if detalles['impuesto'] == 16 else 0},
+                                                        {detalles['monto_iva']},
+                                                        {detalles['descuento']},
+                                                        {round(detalles['precio_sin_iva'] * (detalles['descuento']/ 100), 2)},
+                                                        {detalles['precio_sin_iva']},
+                                                        {detalles['precio_con_descuento']},
+                                                        {detalles['precio_venta']},
+                                                        1,
+                                                        1,
+                                                        '{pedido['vendedor']}',
+                                                        {detalles['precio_con_descuento']},
+                                                        0,
+                                                        '{datetime.now().strftime('%Y-%m-%d')}'
+                                                        )
+                                                        ;""")
+                    linea += 1
+            print(detalle_query[0])
+            with self.connect_dbisam() as conn:
+                with conn.cursor() as cursor:
+                    comentario = pedido['comentario'].replace("\r", "'+#13+'").replace("\n", "'+#10+'")
+                    cursor.execute(f"""START TRANSACTION;
+                                      INSERT INTO SOPERACIONINV (FTI_DOCUMENTO, 
+                                                                 FTI_TIPO, 
+                                                                 FTI_STATUS,
+                                                                 FTI_VISIBLE,
+                                                                 FTI_FECHAEMISION,
+                                                                 FTI_DEPOSITOSOURCE,
+                                                                 FTI_TOTALITEMS,
+                                                                 FTI_TOTALITEMSINICIAL,
+                                                                 FTI_MONEDA,
+                                                                 FTI_RESPONSABLE,
+                                                                 FTI_DETALLE, 
+                                                                 FTI_TIENELOTES,
+                                                                 FTI_UPDATEITEMS,
+                                                                 FTI_TOTALBRUTO,
+                                                                 FTI_DESCUENTO1PORCENT,
+                                                                 FTI_DESCUENTO1MONTO,
+                                                                 FTI_DESCUENTO1ORIGEN,
+                                                                 FTI_BASEIMPONIBLE,
+                                                                 FTI_IMPUESTO1PORCENT,
+                                                                 FTI_IMPUESTO1MONTO,     
+                                                                 FTI_TOTALNETO,
+                                                                 FTI_RIFCLIENTE,
+                                                                 FTI_PERSONACONTACTO,
+                                                                 FTI_VENDEDORASIGNADO,
+                                                                 FTI_HORA)
+                                        VALUES ('{pedido['id']}', 
+                                                10, 
+                                                4,
+                                                1,
+                                                '{datetime.now().strftime('%Y-%m-%d')}',
+                                                1, 
+                                                {len(pedido['productos'])},
+                                                {len(pedido['productos'])},
+                                                2,
+                                                '{pedido['cliente']}',
+                                                '{comentario}',
+                                                0,
+                                                1,
+                                                {pedido['total_bruto']}, 
+                                                0,
+                                                0,
+                                                1,
+                                                {pedido['baseimponible']},
+                                                16,
+                                                {pedido['iva_16']},
+                                                {pedido['total_neto']},
+                                                '{pedido['cliente']}',
+                                                '{pedido['descripcion_cliente']}',
+                                                '04',
+                                                '{datetime.now().strftime("%I:%M:%S %p")}');
+                                      {''.join(detalle_query)}  
+                                """)
+                    cursor.execute("COMMIT;")
+                    #print(count, 'filas insertadas')
+                    #cursor.execute("""""")
+                    # for codigo, detalles in pedido['productos'].items():
+                    #      cursor.execute(f"""INSERT INTO SDETALLEVENTA (FDI_DOCUMENTO, FDI_TIPOOPERACION, FDI_CODIGO, FDI_CANTIDAD, FDI_PRECIODEVENTA, FDI_PRECIOBASECOMISION, FDI_OPERACION_AUTOINCREMENT, FDI_LINEA)
+                    #                          VALUES ('00000123', 10, '{codigo}', {detalles['cantidad']}, {detalles['precio']}, {detalles['subtotal']}, LASTAUTOINC('SOPERACIONINV'), 0);""")
+                    # cursor.execute("COMMIT;")
+                    # conn.commit()   
+                #conn.commit()      
+        except Exception as e:
+            print(e)
+            
     def create_table_tmp(self, name_table):
         conn = self.connect()
         cursor = conn.cursor()
