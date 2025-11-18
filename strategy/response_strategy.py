@@ -4,8 +4,7 @@ from database.dbisam import DBISAMDatabase
 from sqlmodel import Session
 from datetime import datetime
 from sqlmodel import SQLModel
-
-print(SQLModel.metadata.tables.keys())
+from pdf.weasy import generar_factura
 
 class RespuestaPedidoStrategy:
     def execute(self, client: WhatsApp, user: str): #btn: CallbackButton):
@@ -35,6 +34,13 @@ class ConfirmarStrategy(RespuestaPedidoStrategy):
         pedido["id"] = id_pedido
         #session.refresh(pedido_postgre)
         DBISAMDatabase().insert_pedidos(pedido)
+        generar_factura(filename=f'static/media/pedido{pedido["id"]}.pdf', pedido=pedido, logo_path='pdf/marluis.png')
+        client.send_document(
+            to=user,
+            document=f'static/media/pedido{pedido["id"]}.pdf',
+            caption='Su pedido ha sido procesado con éxito',
+            filename=f'Pedido nro:{id_pedido}.pdf'
+        )
         client.send_message(
             to=user,
             header="Orden Procesada",
