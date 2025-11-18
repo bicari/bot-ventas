@@ -18,15 +18,18 @@ class Handler(ABC):
 
 class ClienteHandler(Handler):
     def handle(self, pedido: Pedido, user_id: str) -> None:
-        codigo_vendedor = DBISAMDatabase().consultar_vendedor(user_id)
-        cliente_desc = DBISAMDatabase().consultar_cliente(pedido['cliente'], codigo_vendedor)
-        print(codigo_vendedor, cliente_desc)
-        if not pedido['cliente'].startswith(("J", "G", "V", "E", "P")):  # Cliente
-            raise ValueError("Código de cliente inválido. Debe comenzar con J, G, V, E o P.")
+        vendedor = DBISAMDatabase().consultar_vendedor(user_id)
+        cliente_desc = DBISAMDatabase().consultar_cliente(pedido['cliente'], vendedor[0])
+        #print(codigo_vendedor, cliente_desc)
+        #Validación de código de cliente desactivado temporalmente
+        #if not pedido['cliente'].startswith(("J", "G", "V", "E", "P")):  # Cliente
+        #    raise ValueError("Código de cliente inválido. Debe comenzar con J, G, V, E o P.")
         if cliente_desc is None:
             raise ValueError(f"El cliente `{pedido['cliente']}` no está asignado a tus clientes o se encuentra inactivo. \n\nPuedes solicitar la creación del cliente comunicándote con el departamento de administración o usando el comando de creación `\crear_cliente` y llenando el formulario.")
-        pedido['descripcion_cliente'] = cliente_desc
-        pedido['vendedor'] = codigo_vendedor
+        pedido['descripcion_cliente'] = cliente_desc[0]
+        pedido['direccion_cliente'] = cliente_desc[1]
+        pedido['vendedor'] = vendedor[0]
+        pedido['nombre_vendedor']= vendedor[1]
         return self.next(pedido, user_id)
 
 
@@ -50,9 +53,10 @@ class ProductoHandler(Handler):
             # pedido["total_neto"] = round(total_bruto + iva_16 + iva_8, 2)
             # pedido["iva_16"] = iva_16
             # pedido["exento"] = exento
-            for codigo, impuesto, precio in query_products:
+            for codigo, impuesto, precio, descripcion in query_products:
                 if codigo in pedido["productos"] and precio > 0:
                     precio_item = precio
+                    pedido["productos"][codigo]["descripcion"] = descripcion
                     pedido["productos"][codigo]["impuesto"] =  impuesto
                     pedido["productos"][codigo]["precio_sin_iva"] = precio_item
                     pedido["productos"][codigo]["precio"] = round(precio_item * (pedido["productos"][codigo]["impuesto"] / 100 + 1), 2)
