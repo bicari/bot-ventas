@@ -25,7 +25,7 @@ class DBISAMDatabase:
                         return None
                     return [vendedor.FV_TELEFONOS for vendedor in vendedores]    
         except Exception as e:
-            print(str(e))
+            return(str(e))
 
     def consultar_vendedor(self, telefono: str):
         try:
@@ -34,20 +34,20 @@ class DBISAMDatabase:
                     vendedor=cursor.execute(f"SELECT FV_CODIGO, FV_DESCRIPCION FROM SVENDEDORES WHERE FV_TELEFONOS = '{telefono}' AND FV_STATUS = 1").fetchone()
                     if vendedor is None:
                         return None
-                    return vendedor.FV_CODIGO    
+                    return [vendedor.FV_CODIGO, vendedor.FV_DESCRIPCION]   
         except Exception as e:
-            print(str(e))
+            return(str(e))
 
     def consultar_cliente(self, cliente: str, vendedor:str):
         try:
             with self.connect_dbisam() as conn:
                 with conn.cursor() as cursor:
-                    cliente_encontrado=cursor.execute(f"SELECT FC_CODIGO, FC_DESCRIPCION FROM SCLIENTES WHERE FC_CODIGO = '{cliente}' AND FC_VENDEDOR = '{vendedor}' AND FC_STATUS = 1").fetchone()
+                    cliente_encontrado=cursor.execute(f"SELECT FC_CODIGO, FC_DESCRIPCION, FC_DIRECCION1 FROM SCLIENTES WHERE FC_CODIGO = '{cliente}' AND FC_VENDEDOR = '{vendedor}' AND FC_STATUS = 1").fetchone()
                     if cliente_encontrado is None:
                         return None
-                    return cliente_encontrado.FC_DESCRIPCION    
+                    return [cliente_encontrado.FC_DESCRIPCION, cliente_encontrado.FC_DIRECCION1]
         except Exception as e:
-            print(str(e))
+            return(str(e))
             
 
     def a2invcostosprecios(self):
@@ -85,7 +85,8 @@ class DBISAMDatabase:
                                              WHEN FIC_IMP01ACTIVO = 0 AND FIC_IMP01EXENTO = 1 THEN 0
                                         ELSE 0
                                         END AS IMPUESTO,
-                                        FIC_{precios.get(tipo_precio)}PRECIOTOTALEXT             
+                                        FIC_{precios.get(tipo_precio)}PRECIOTOTALEXT,
+                                        FI_DESCRIPCION             
                                      FROM SINVENTARIO
                                      INNER JOIN A2INVCOSTOSPRECIOS ON FIC_CODEITEM = FI_CODIGO
                                      WHERE FI_STATUS = 1 AND FI_CODIGO IN {parse_products}""").fetchall()
@@ -93,6 +94,35 @@ class DBISAMDatabase:
                     return productos    
         except Exception as e:
             print(str(e))
+            return str(e)   
+        
+    def insert_cliente(self, cliente: dict, tlf_vendedor: str):
+        try:
+            direccion =  cliente['registrar']['direccion'] + "'+#10+'" + "'+#13+'" 
+            nombre = cliente['registrar']['name']
+            correo = cliente['registrar']['email']
+            telefono = cliente['registrar']['phone']
+            rif = cliente['registrar']['rif']
+            tipo = cliente['registrar']['tipo']
+            with self.connect_dbisam() as conn:
+                with conn.cursor() as cursor:
+                    vendedor = cursor.execute(f"SELECT FV_CODIGO, FV_ZONAVENTA FROM SVENDEDORES WHERE FV_TELEFONOS = '{tlf_vendedor}' AND FV_STATUS = 1 ").fetchone()
+                    query = """INSERT INTO SCLIENTES 
+                                                (FC_CODIGO, FC_DESCRIPCION, FC_STATUS, FC_CLASIFICACION, 
+                                                FC_RIF, FC_DIRECCION1, FC_TELEFONO, FC_EMAIL,
+                                                FC_ZONA, FC_VENDEDOR, FC_LIMITECREDITO, FC_FECHANACIMIENTO,
+                                                FC_MONEDA)
+                                            VALUES('{rif}', '{nombre}', 1, '{clasificacion}', 
+                                                   '{rif}', '{direccion}', '{telefono}', '{email}',
+                                                   '{zona}', '{vendedor}', 0.01, '{fecha}', '2')""".format(rif=rif, nombre=nombre.upper(), clasificacion=tipo, 
+                                                                                                      direccion=direccion, telefono=telefono, email=correo, 
+                                                                                                      zona=vendedor.FV_ZONAVENTA, vendedor=vendedor.FV_CODIGO, fecha=datetime.now().strftime('%Y-%m-%d'))
+                    print(query)
+                    row = cursor.execute(query).rowcount
+                    cursor.commit()
+                    return row
+        except pyodbc.Error as e:
+            print(e)
             return str(e)   
 
     def insert_pedidos(self, pedido):
