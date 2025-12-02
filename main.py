@@ -21,6 +21,8 @@ from sqlmodel import create_engine, Session
 from pdf.weasy import generar_factura
 from decouple import config
 
+#from llms.chat import OllamaChat
+
 
 cache_pedidos: Dict[str, list] = defaultdict(list)
 redis_cache = PedidoCache()
@@ -66,7 +68,18 @@ def enviar_pdf(pedido_document:str):
             filename=pedido_document
         )
 
-    
+# @wa.on_message()
+# def respuesta_generica(client:WhatsApp, msg: types.Message):
+#     llm = OllamaChat()
+#     llm_response = llm.chat_response(msg.text)
+#     client.send_message(
+#              to=msg.from_user,
+#              text=f"{llm_response}",
+#              header='Asistente de Pedidos',
+#              footer='Dist Marluis',
+#              reply_to_message_id=msg.id
+#          )
+        
 @wa.on_flow_completion(filters.new(registrar_cliente) & filters.new(user_with_auth))
 def registro_cliente(client: WhatsApp, flow: FlowCompletion):
     db = DBISAMDatabase()
@@ -111,7 +124,7 @@ def confirmar_pedido(_: WhatsApp, flow: FlowCompletion):
 #def message(_: WhatsApp, msg: types.Message):
 #    print(msg)
 
-@wa.on_message(filters.new(user_with_auth) & ~filters.regex(r"^\\\w+"))
+@wa.on_message(filters.new(user_with_auth))
 def handle_message(client: WhatsApp, msg: types.Message):
      user_id = msg.from_user.wa_id
      text_msg= msg.text.splitlines()
@@ -129,6 +142,7 @@ def handle_message(client: WhatsApp, msg: types.Message):
              ],
              reply_to_message_id=msg.id
          )
+        
          return
      handler_chain = ClienteHandler(
          ProductoHandler()
@@ -146,7 +160,7 @@ def handle_message(client: WhatsApp, msg: types.Message):
          return
         
      pedido['id'] = 'PRELIMINAR'
-     generar_factura(filename=f'static/media/pedido_preliminar.pdf', pedido=pedido, logo_path='pdf/marluis.png')
+     pdf_buffer = generar_factura(filename=f'static/media/pedido_preliminar.pdf', pedido=pedido, logo_path='pdf/marluis.png', preliminar=True)
      
      items = (list(map(
                  lambda x: """📦Código: {code}\nCantidad: {qty}\nPrecio: ${price}\n{precio_con_descuento}Subtotal: ${sub}\n""".format(code=x, qty=pedido['productos'][x]['cantidad'], price=pedido['productos'][x]['precio'], sub=pedido['productos'][x]['subtotal'], precio_con_descuento=f"`Precio Descuento:${pedido['productos'][x]['precio_venta'] }`\n" if pedido['productos'][x]['descuento'] > 0 else '' ), pedido['productos'].keys())))
@@ -162,13 +176,15 @@ def handle_message(client: WhatsApp, msg: types.Message):
          )
      client.send_document(
           to=msg.from_user,
-          document='static/media/pedido_preliminar.pdf',
-          filename='Preliminar_Pedido.pdf',
-          caption='Descargue el preliminar de su pedido aquí'
+          document=pdf_buffer,
+          filename='Preliminar.pdf',
+          caption='Descargue el preliminar de su pedido aquí',
+          mime_type='application/pdf'
      )   
      redis_cache.agregar_pedido(user_id, pedido, response_user.id)
      #add_pedido(user_id, pedido, response_user.id)
-    
+
+
 @wa.on_message(filters.startswith("\crear_cliente", ignore_case=True) & filters.new(user_with_auth))
 def crear_cliente(client: WhatsApp, msg: types.Message):
     client.send_message(

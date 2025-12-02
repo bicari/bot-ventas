@@ -4,13 +4,21 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepInFrame
 )
+from io import BytesIO
 from datetime import datetime
 
-def generar_factura(filename, pedido: dict, logo_path=None):
-    doc = SimpleDocTemplate(filename, pagesize=LETTER, leftMargin=30,   # en puntos (72 = 1 pulgada)
-    rightMargin=30,
-    topMargin=10,
-    bottomMargin=10)
+def generar_factura(filename, pedido: dict, logo_path=None, preliminar: bool = False):
+    buffer = BytesIO()
+    if preliminar:
+        doc = SimpleDocTemplate(buffer, pagesize=LETTER, leftMargin=30,   # en puntos (72 = 1 pulgada)
+            rightMargin=30,
+            topMargin=10,
+            bottomMargin=10)
+    else:    
+        doc = SimpleDocTemplate(filename, pagesize=LETTER, leftMargin=30,   # en puntos (72 = 1 pulgada)
+            rightMargin=30,
+            topMargin=10,
+            bottomMargin=10)
     elements = []
     
     styles = getSampleStyleSheet()
@@ -120,6 +128,10 @@ def generar_factura(filename, pedido: dict, logo_path=None):
 
     # ---- Construir PDF ----
     doc.build(elements)
+    if preliminar:
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes    
 
 
 #pedido = {'cliente': 'E80338646', 'productos': {'01010001': {'cantidad': 23.0, 'descuento': 10, 'descripcion': 'MARCADOR PIZARRA PUNTA CINCEL OFIMAK REF OK93P', 'impuesto': 16, 'precio_sin_iva': 48.5, 'precio': 56.26, 'precio_con_descuento': 43.65, 'monto_iva': 6.98, 'precio_venta': 50.63, 'subtotal': 1164.49}, '01010009': {'cantidad': 2.0, 'descuento': 0, 'descripcion': 'TABLA D/INVENTARIO T/OFICIO OFIMAK REF  EN MADERA', 'impuesto': 0, 'precio_sin_iva': 2.0, 'precio': 2.0, 'precio_con_descuento': 2.0, 'monto_iva': 0.0, 'precio_venta': 2.0, 'subtotal': 4.0}, '01020003': {'cantidad': 1.0, 'descuento': 0, 'descripcion': 'ENGRAPADORA OFIMAK REF OK07B C/AZUL P/GRAPAS LISAS/CORRUG 120X60X20MM', 'impuesto': 16, 'precio_sin_iva': 5.87, 'precio': 6.81, 'precio_con_descuento': 5.87, 'monto_iva': 0.94, 'precio_venta': 6.81, 'subtotal': 6.81}, '07080059': {'cantidad': 2.0, 'descuento': 0, 'descripcion': 'TALADRO 1/2 BRUSHLESS BARETOOL GBS 18V-150 C BOCHS REF. 06019J51E0 / 03-32-011', 'impuesto': 16, 'precio_sin_iva': 867.98, 'precio': 1006.86, 'precio_con_descuento': 867.98, 'monto_iva': 138.88, 'precio_venta': 1006.86, 'subtotal': 2013.72}}, 'precio': 'P1', 'comentario': 'Comentario\xa0del\xa0pedidooo', 'total': 0.0, 'descripcion_cliente': 'RAUL ARAGUNDI', 'vendedor': '04', 'baseimponible': 2745.78, 'exento': 4.0, 'total_bruto': 2749.78, 'iva_16': 439.32, 'total_neto': 3189.1, 'nombre_vendedor': 'Carlos Aranguren', 'pedido':11}
