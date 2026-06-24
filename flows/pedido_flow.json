@@ -49,6 +49,16 @@
                   { "id": "P1", "title": "P1 - Lista 1" },
                   { "id": "P2", "title": "P2 - Lista 2" }
                 ]
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "label": "Sistema",
+                "name": "sistema",
+                "required": true,
+                "data-source": [
+                  { "id": "A", "title": "Sistema A" },
+                  { "id": "B", "title": "Sistema B" }
+                ]
               }
             ]
           },
@@ -60,7 +70,8 @@
               "payload": {
                 "action":      "select_client",
                 "cliente_id":  "${form.cliente_id}",
-                "tipo_precio": "${form.tipo_precio}"
+                "tipo_precio": "${form.tipo_precio}",
+                "sistema":     "${form.sistema}"
               }
             }
           }
