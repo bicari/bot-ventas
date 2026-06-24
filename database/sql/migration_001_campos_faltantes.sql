@@ -28,3 +28,13 @@ ALTER TABLE pedido_detalle ADD COLUMN IF NOT EXISTS precio_sin_iva DOUBLE PRECIS
 ALTER TABLE pedido_detalle ADD COLUMN IF NOT EXISTS precio_venta   DOUBLE PRECISION NOT NULL DEFAULT 0.0;
 ALTER TABLE pedido_detalle ADD COLUMN IF NOT EXISTS total_sin_dcto DOUBLE PRECISION NOT NULL DEFAULT 0.0;
 ALTER TABLE pedido_detalle ADD COLUMN IF NOT EXISTS peso_item      DOUBLE PRECISION NOT NULL DEFAULT 0.0;
+
+-- ── Reconciliación de columnas previas que create_all() nunca agregó ──────────
+-- Estas columnas ya existían en los modelos antes de esta tarea, pero una BD
+-- creada con un esquema más viejo podría carecer de ellas (create_all no altera
+-- tablas existentes). Idempotente: no afecta a BDs que ya las tengan.
+ALTER TABLE pedidos        ADD COLUMN IF NOT EXISTS base_8_monto DOUBLE PRECISION NOT NULL DEFAULT 0.0;
+ALTER TABLE pedidos        ADD COLUMN IF NOT EXISTS iva_8_monto  DOUBLE PRECISION NOT NULL DEFAULT 0.0;
+ALTER TABLE pedidos        ADD COLUMN IF NOT EXISTS exento_monto DOUBLE PRECISION NOT NULL DEFAULT 0.0;
+ALTER TABLE pedido_detalle ADD COLUMN IF NOT EXISTS impuesto     DOUBLE PRECISION NOT NULL DEFAULT 0.0;
+ALTER TABLE pedido_detalle ADD COLUMN IF NOT EXISTS monto_iva    DOUBLE PRECISION NOT NULL DEFAULT 0.0;
