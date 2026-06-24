@@ -74,7 +74,7 @@
       "data": {
         "items_texto": {
           "type": "string",
-          "__example__": "Sin productos agregados aun."
+          "__example__": "Sin productos agregados aún."
         },
         "error": {
           "type": "string",
