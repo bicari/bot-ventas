@@ -18,6 +18,7 @@ from filtros.UserFiltro import user_with_auth
 from filtros.FlowFiltros import registrar_cliente, confirmar_pedido, nuevo_pedido_flow
 from database.redis import PedidoCache
 from flows.routing import inferir_accion_flow
+from flows.carrito import formato_carrito
 from database.postgres import create_tables_and_db
 from sqlmodel import create_engine, Session
 from pdf.weasy import generar_factura
@@ -299,18 +300,6 @@ def nuevo_pedido(client: WhatsApp, msg: types.Message):
 
 # ── Helpers del Flow ─────────────────────────────────────────────────────────
 
-def _formato_carrito(carrito: dict) -> str:
-    """Genera el texto de carrito que se muestra en la pantalla PRODUCTO."""
-    prods = carrito.get("productos", {})
-    if not prods:
-        return "Sin productos agregados aún."
-    lineas = []
-    for cod, p in prods.items():
-        desc_str = f" (-{p['descuento']}%)" if p.get("descuento") else ""
-        lineas.append(f"• {cod} × {p['cantidad']}{desc_str} = ${p['subtotal']:.2f}")
-    return "\n".join(lineas)
-
-
 def _calcular_totales_y_resumen(carrito: dict) -> tuple[str, dict]:
     """Calcula los totales por base y devuelve (texto de resumen, carrito actualizado)."""
     prods = carrito.get("productos", {})
@@ -389,7 +378,7 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
     if not action:
         if current_screen == "PRODUCTO":
             return req.respond(screen="PRODUCTO", data={
-                "items_texto": _formato_carrito(carrito),
+                "items_texto": formato_carrito(carrito),
                 "error": " ",
                 "show_error": False,
             })
@@ -404,7 +393,7 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
         print(f"[FLOW] select_client cliente={carrito['cliente']} precio={carrito['tipo_precio']}")
         redis_cache.guardar_carrito(req.flow_token, carrito)
         return req.respond(screen="PRODUCTO", data={
-            "items_texto": "Sin productos agregados aún.",
+            "items_texto": formato_carrito(carrito),
             "error": " ",
             "show_error": False,
         })
@@ -423,7 +412,7 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
                 raise ValueError("La cantidad debe ser mayor que cero.")
         except ValueError as exc:
             return req.respond(screen="PRODUCTO", data={
-                "items_texto": _formato_carrito(carrito),
+                "items_texto": formato_carrito(carrito),
                 "error": f"⚠️ {exc}",
                 "show_error": True,
             })
@@ -450,7 +439,7 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
             redis_cache.guardar_carrito(req.flow_token, carrito)
         except Exception as exc:
             return req.respond(screen="PRODUCTO", data={
-                "items_texto": _formato_carrito(carrito),
+                "items_texto": formato_carrito(carrito),
                 "error": f"⚠️ {exc}",
                 "show_error": True,
             })
@@ -461,7 +450,7 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
             return req.respond(screen="RESUMEN", data={"resumen_texto": resumen_txt})
 
         return req.respond(screen="PRODUCTO", data={
-            "items_texto": _formato_carrito(carrito),
+            "items_texto": formato_carrito(carrito, agregado=f"{fi_codigo} × {cantidad}"),
             "error": " ",
             "show_error": False,
         })
