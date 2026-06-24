@@ -94,6 +94,10 @@
         "show_error": {
           "type": "boolean",
           "__example__": false
+        },
+        "tiene_items": {
+          "type": "boolean",
+          "__example__": false
         }
       },
       "layout": {
@@ -136,17 +140,17 @@
                 "name": "descuento",
                 "input-type": "number",
                 "required": false
-              },
-              {
-                "type": "CheckboxGroup",
-                "label": "Finalizar pedido",
-                "name": "es_ultimo",
-                "required": false,
-                "data-source": [
-                  { "id": "si", "title": "Este es el ultimo producto" }
-                ]
               }
             ]
+          },
+          {
+            "type": "EmbeddedLink",
+            "text": "Totalizar pedido",
+            "visible": "${data.tiene_items}",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "action": "totalizar", "totalizar": "1" }
+            }
           },
           {
             "type": "Footer",
@@ -157,8 +161,7 @@
                 "action":    "add_product",
                 "codigo":    "${form.codigo}",
                 "cantidad":  "${form.cantidad}",
-                "descuento": "${form.descuento}",
-                "es_ultimo": "${form.es_ultimo}"
+                "descuento": "${form.descuento}"
               }
             }
           }
