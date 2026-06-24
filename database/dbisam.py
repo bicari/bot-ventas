@@ -6,9 +6,9 @@ import uuid
 from datetime import datetime
 
 class DBISAMDatabase:
-    def __init__(self):
+    def __init__(self, catalog: str | None = None):
         self.dsn = config('DSN')
-        self.catalog = config('CatalogName')
+        self.catalog = catalog if catalog else config('CatalogName')
         print('INIT', self.catalog, self.dsn)
         #self.tmp_table_tasks = settings.DBISAM_DATABASE['TMP_TABLE_TASKS']
 
@@ -50,6 +50,21 @@ class DBISAMDatabase:
             return(str(e))
             
 
+    def listar_clientes_de_vendedor(self, vendedor: str) -> list[dict]:
+        """Retorna los clientes activos asignados al vendedor, para poblar el Dropdown del Flow."""
+        try:
+            with self.connect_dbisam() as conn:
+                with conn.cursor() as cursor:
+                    filas = cursor.execute(
+                        f"SELECT FC_CODIGO, FC_DESCRIPCION FROM SCLIENTES "
+                        f"WHERE FC_VENDEDOR = '{vendedor}' AND FC_STATUS = 1 "
+                        f"ORDER BY FC_DESCRIPCION"
+                    ).fetchall()
+                    return [{"id": f.FC_CODIGO, "title": f.FC_DESCRIPCION} for f in filas]
+        except Exception as e:
+            print("Error en listar_clientes_de_vendedor:", str(e))
+            return []
+
     def a2invcostosprecios(self):
         try: 
             with self.connect_dbisam() as conn:
@@ -76,25 +91,63 @@ class DBISAMDatabase:
         try:
             precios = {'P1': 'P01', 'P2': 'P02', 'P3': 'P03'}
             parse_products = '(' +  ','.join(map(lambda x: f"'{x}'", productos)) + ')' 
-            
+            print(parse_products)
             with self.connect_dbisam() as conn:
                 with conn.cursor() as cursor:
-                    productos=cursor.execute(f"""SELECT FI_CODIGO, 
+                    codebar = cursor.execute(f"""SELECT
+                                                    FBARRA_CODE,
+                                                    FBARRA_PRODUCTO
+                                                FROM SCODEBAR WHERE FBARRA_CODE IN {parse_products}""").fetchall()
+                    productos_con_codigo_barra = {x[1]:x[0] for x in codebar}
+                    
+                    print(productos_con_codigo_barra)
+                    #productos_referencia = list(filter(lambda x: x not in productos_con_codigo_barra, productos))
+                    productos_referencia_codigo_barra = '(' +  ','.join(map(lambda x: f"'{x}'", productos_con_codigo_barra))+ ')' 
+                    #print(productos_con_codigo_barra, productos_referencia)
+                    #print(productos_referencia_codigo_barra, len(productos_referencia)
+                    #print(productos_referencia_codigo_barra)
+                    query=f"""SELECT FI_CODIGO, 
                                         CASE WHEN FIC_IMP01ACTIVO = 1 AND FIC_IMP01EXENTO = 0 THEN 16
                                              WHEN FIC_IMP02ACTIVO = 1 AND FIC_IMP01EXENTO = 0 THEN 8
                                              WHEN FIC_IMP01ACTIVO = 0 AND FIC_IMP01EXENTO = 1 THEN 0
                                         ELSE 0
                                         END AS IMPUESTO,
                                         FIC_{precios.get(tipo_precio)}PRECIOTOTALEXT,
-                                        FI_DESCRIPCION             
+                                        FI_DESCRIPCION,
+                                        FI_PESOPRODUCTO,
+                                        FI_REFERENCIA             
                                      FROM SINVENTARIO
                                      INNER JOIN A2INVCOSTOSPRECIOS ON FIC_CODEITEM = FI_CODIGO
-                                     WHERE FI_STATUS = 1 AND FI_CODIGO IN {parse_products}""").fetchall()
-                    print(productos)
-                    return productos    
+                                     WHERE FI_STATUS = 1 AND FI_CODIGO IN {productos_referencia_codigo_barra} OR FI_REFERENCIA IN {parse_products}"""
+                    #print(query)
+                    productos_query=cursor.execute(query).fetchall()
+                    
+                    # FI_REFERENCIA está en índice 5 (no 4 que es FI_PESOPRODUCTO)
+                    productos_con_referencia = [x[5] for x in productos_query]
+                    not_found = [producto for producto in productos if producto not in productos_con_referencia and producto not in productos_con_codigo_barra.values() ]
+                    
+                    # Construir dict {codigo_original_ingresado → fila}
+                    # para evitar emparejar por posición (el query no garantiza orden)
+                    result_map = {}
+                    for row in productos_query:
+                        fi_codigo   = row[0]   # código interno del inventario
+                        fi_referencia = row[5] # referencia / SKU tipado por el usuario
+                        if fi_codigo in productos_con_codigo_barra:
+                            # El usuario ingresó un código de barras
+                            original = productos_con_codigo_barra[fi_codigo]
+                        elif fi_referencia in productos:
+                            # El usuario ingresó la referencia directamente
+                            original = fi_referencia
+                        else:
+                            # Coincidencia directa por FI_CODIGO
+                            original = fi_codigo
+                        result_map[original] = row
+                    
+                    print(productos, productos_con_codigo_barra, productos_con_referencia, result_map, not_found)
+                    return result_map, not_found   
         except Exception as e:
-            print(str(e))
-            return str(e)   
+            print("Error en lectura de precios",str(e))
+            raise pyodbc.DatabaseError(e)   
         
     def insert_cliente(self, cliente: dict, tlf_vendedor: str):
         try:
@@ -131,21 +184,22 @@ class DBISAMDatabase:
             linea = 0
             ID_PEDIDO = f"WS{uuid.uuid4().hex[:10].upper()}"  
             for codigo, detalles in pedido['productos'].items():
-                    detalle_query.append(f"""INSERT INTO SDETALLEVENTA 
+                # Nota: se eliminaron las declaraciones duplicadas de FDI_PRECIODEVENTA y
+                # FDI_PRECIOBASECOMISION que existían antes (una en cada par columna/valor).
+                # FDI_PORCENTIMPUESTO1 ahora refleja si el ítem tiene algún impuesto (>0).
+                detalle_query.append(f"""INSERT INTO SDETALLEVENTA
                                                         (FDI_DOCUMENTO,
                                                         FDI_CLIENTEPROVEEDOR,
                                                         FDI_STATUS,
                                                         FDI_MONEDA,
                                                         FDI_VISIBLE,
                                                         FDI_DEPOSITOSOURCE,
-                                                        FDI_USADEPOSITOS, 
-                                                        FDI_TIPOOPERACION, 
-                                                        FDI_CODIGO, 
+                                                        FDI_USADEPOSITOS,
+                                                        FDI_TIPOOPERACION,
+                                                        FDI_CODIGO,
                                                         FDI_CANTIDAD,
-                                                        FDI_CANTIDADPENDIENTE, 
-                                                        FDI_PRECIODEVENTA, 
-                                                        FDI_PRECIOBASECOMISION, 
-                                                        FDI_OPERACION_AUTOINCREMENT, 
+                                                        FDI_CANTIDADPENDIENTE,
+                                                        FDI_OPERACION_AUTOINCREMENT,
                                                         FDI_LINEA,
                                                         FDI_IMPUESTO1,
                                                         FDI_PORCENTIMPUESTO1,
@@ -163,22 +217,20 @@ class DBISAMDatabase:
                                                         FDI_FECHAOPERACION
                                                         )
                                               VALUES ('{pedido['id']}',
-                                                        '{pedido['cliente']}', 
+                                                        '{pedido['cliente']}',
                                                         4,
                                                         2,
                                                         1,
                                                         1,
                                                         1,
-                                                        10, 
-                                                        '{codigo}', 
+                                                        10,
+                                                        '{codigo}',
                                                         {detalles['cantidad']},
-                                                        {detalles['cantidad']}, 
-                                                        {detalles['precio']}, 
-                                                        {detalles['subtotal']},
-                                                        LASTAUTOINC('SOPERACIONINV'), 
+                                                        {detalles['cantidad']},
+                                                        LASTAUTOINC('SOPERACIONINV'),
                                                         {linea},
                                                         {detalles['impuesto']},
-                                                        {1 if detalles['impuesto'] == 16 else 0},
+                                                        {1 if detalles['impuesto'] > 0 else 0},
                                                         {detalles['monto_iva']},
                                                         {detalles['descuento']},
                                                         {round(detalles['precio_sin_iva'] * (detalles['descuento']/ 100), 2)},
@@ -193,7 +245,7 @@ class DBISAMDatabase:
                                                         '{datetime.now().strftime('%Y-%m-%d')}'
                                                         )
                                                         ;""")
-                    linea += 1
+                linea += 1
             print(detalle_query[0])
             with self.connect_dbisam() as conn:
                 with conn.cursor() as cursor:
@@ -209,7 +261,7 @@ class DBISAMDatabase:
                                                                  FTI_TOTALITEMSINICIAL,
                                                                  FTI_MONEDA,
                                                                  FTI_RESPONSABLE,
-                                                                 FTI_DETALLE, 
+                                                                 FTI_DETALLECOMENTARIO, 
                                                                  FTI_TIENELOTES,
                                                                  FTI_UPDATEITEMS,
                                                                  FTI_TOTALBRUTO,
@@ -247,7 +299,7 @@ class DBISAMDatabase:
                                                 {pedido['total_neto']},
                                                 '{pedido['cliente']}',
                                                 '{pedido['descripcion_cliente']}',
-                                                '04',
+                                                '{pedido['vendedor']}',
                                                 '{datetime.now().strftime("%I:%M:%S %p")}');
                                       {''.join(detalle_query)}  
                                 """)
@@ -298,3 +350,6 @@ class DBISAMDatabase:
                         % (self.tmp_table_tasks, name_table, datetime.now().strftime('%Y-%m-%d')))
             print(f"Rows updated: {row_count.rowcount}")
             conn.commit()
+
+#test = DBISAMDatabase()
+#test.consultar_precios(['01010024', '01010026', '535', '7591002000011'], 'P1')

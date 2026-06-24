@@ -1,6 +1,7 @@
 from pywa import WhatsApp
 from models.pedidos import Pedido_Detalle, Pedidos
 from database.dbisam import DBISAMDatabase
+from database.catalogos import catalogo_de_sistema
 from sqlmodel import Session
 from datetime import datetime
 from sqlmodel import SQLModel
@@ -56,7 +57,7 @@ class ConfirmarStrategy(RespuestaPedidoStrategy):
         session.commit()
         pedido["id"] = id_pedido
         #session.refresh(pedido_postgre)
-        DBISAMDatabase().insert_pedidos(pedido)
+        DBISAMDatabase(catalog=catalogo_de_sistema(pedido.get("sistema"))).insert_pedidos(pedido)
         generar_factura(filename=f'static/media/pedido{pedido["id"]}.pdf', pedido=pedido, logo_path='pdf/marluis.png')
         client.send_document(
             to=user,
