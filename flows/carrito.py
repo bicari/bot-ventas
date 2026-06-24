@@ -1,4 +1,4 @@
-"""Formateo del texto del carrito que se muestra en la pantalla PRODUCTO.
+"""Formateo del carrito y armado de la data de la pantalla PRODUCTO del Flow.
 
 Extraido de main.py para poder testearlo sin importar el cliente WhatsApp
 ni las conexiones a BD/Redis. La pantalla PRODUCTO enlaza este texto con la
@@ -33,3 +33,16 @@ def formato_carrito(carrito: dict, agregado: Optional[str] = None) -> str:
     if agregado:
         return f"✅ Agregado: {agregado}\n\n{cuerpo}"
     return cuerpo
+
+
+def data_producto(carrito: dict, error: Optional[str] = None, agregado: Optional[str] = None) -> dict:
+    """Arma el bloque ``data`` de la pantalla PRODUCTO del Flow.
+
+    Incluye ``tiene_items``, que controla la visibilidad del botón "Totalizar".
+    """
+    return {
+        "items_texto": formato_carrito(carrito, agregado=agregado),
+        "error": f"⚠️ {error}" if error else " ",
+        "show_error": bool(error),
+        "tiene_items": bool(carrito.get("productos")),
+    }

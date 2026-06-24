@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flows.carrito import formato_carrito
+from flows.carrito import formato_carrito, data_producto
 
 
 def _carrito(**prods):
@@ -48,6 +48,39 @@ def test_confirmacion_no_se_muestra_sin_productos():
     assert formato_carrito({"productos": {}}, agregado="X") == "Sin productos agregados aún."
 
 
+def test_data_producto_vacio():
+    d = data_producto({"productos": {}})
+    assert d == {
+        "items_texto": "Sin productos agregados aún.",
+        "error": " ",
+        "show_error": False,
+        "tiene_items": False,
+    }
+
+
+def test_data_producto_con_items_marca_tiene_items():
+    c = _carrito(ABC123={"cantidad": 5, "descuento": 0, "subtotal": 1250.0})
+    d = data_producto(c)
+    assert d["tiene_items"] is True
+    assert d["items_texto"] == "• ABC123 × 5 = $1250.00"
+    assert d["show_error"] is False
+    assert d["error"] == " "
+
+
+def test_data_producto_con_error():
+    d = data_producto({"productos": {}}, error="Agrega al menos un producto.")
+    assert d["error"] == "⚠️ Agrega al menos un producto."
+    assert d["show_error"] is True
+    assert d["tiene_items"] is False
+
+
+def test_data_producto_con_agregado():
+    c = _carrito(ABC123={"cantidad": 5, "descuento": 0, "subtotal": 1250.0})
+    d = data_producto(c, agregado="ABC123 × 5")
+    assert d["items_texto"].startswith("✅ Agregado: ABC123 × 5")
+    assert d["tiene_items"] is True
+
+
 if __name__ == "__main__":
     test_sin_productos()
     test_un_producto_sin_descuento()
@@ -55,4 +88,8 @@ if __name__ == "__main__":
     test_varios_productos_en_orden()
     test_confirmacion_antepuesta()
     test_confirmacion_no_se_muestra_sin_productos()
+    test_data_producto_vacio()
+    test_data_producto_con_items_marca_tiene_items()
+    test_data_producto_con_error()
+    test_data_producto_con_agregado()
     print("OK: formato_carrito.")
