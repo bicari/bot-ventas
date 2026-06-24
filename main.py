@@ -18,7 +18,7 @@ from filtros.UserFiltro import user_with_auth
 from filtros.FlowFiltros import registrar_cliente, confirmar_pedido, nuevo_pedido_flow
 from database.redis import PedidoCache
 from flows.routing import inferir_accion_flow
-from flows.carrito import formato_carrito
+from flows.carrito import data_producto
 from database.postgres import create_tables_and_db
 from sqlmodel import create_engine, Session
 from pdf.weasy import generar_factura
@@ -377,11 +377,7 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
     # Sin acción (DATA_EXCHANGE vacío de carga inicial o BACK): refrescar pantalla actual.
     if not action:
         if current_screen == "PRODUCTO":
-            return req.respond(screen="PRODUCTO", data={
-                "items_texto": formato_carrito(carrito),
-                "error": " ",
-                "show_error": False,
-            })
+            return req.respond(screen="PRODUCTO", data=data_producto(carrito))
         clientes = _clientes_de_carrito(req.flow_token)
         print(f"[FLOW] DATA_EXCHANGE sin acción -> {len(clientes)} clientes")
         return req.respond(screen="CLIENTE", data={"clientes": clientes})
@@ -393,18 +389,13 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
         carrito["sistema"]     = data.get("sistema", "")
         print(f"[FLOW] select_client cliente={carrito['cliente']} precio={carrito['tipo_precio']} sistema={carrito['sistema']}")
         redis_cache.guardar_carrito(req.flow_token, carrito)
-        return req.respond(screen="PRODUCTO", data={
-            "items_texto": formato_carrito(carrito),
-            "error": " ",
-            "show_error": False,
-        })
+        return req.respond(screen="PRODUCTO", data=data_producto(carrito))
 
     # ── add_product: validar producto en DBISAM y agregar al carrito ──────────
     if action == "add_product":
         codigo        = (data.get("codigo") or "").strip().upper()
         cantidad_raw  = str(data.get("cantidad") or "0").replace(",", ".")
         descuento_raw = str(data.get("descuento") or "0").replace(",", ".")
-        es_ultimo     = bool(data.get("es_ultimo"))
 
         try:
             cantidad  = float(cantidad_raw)
@@ -412,11 +403,7 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
             if cantidad <= 0:
                 raise ValueError("La cantidad debe ser mayor que cero.")
         except ValueError as exc:
-            return req.respond(screen="PRODUCTO", data={
-                "items_texto": formato_carrito(carrito),
-                "error": f"⚠️ {exc}",
-                "show_error": True,
-            })
+            return req.respond(screen="PRODUCTO", data=data_producto(carrito, error=str(exc)))
 
         try:
             prods_query, not_found = db.consultar_precios([codigo], carrito.get("tipo_precio", "P1"))
@@ -439,26 +426,23 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
             }
             redis_cache.guardar_carrito(req.flow_token, carrito)
         except Exception as exc:
-            return req.respond(screen="PRODUCTO", data={
-                "items_texto": formato_carrito(carrito),
-                "error": f"⚠️ {exc}",
-                "show_error": True,
-            })
+            return req.respond(screen="PRODUCTO", data=data_producto(carrito, error=str(exc)))
 
-        if es_ultimo:
-            resumen_txt, carrito = _calcular_totales_y_resumen(carrito)
-            redis_cache.guardar_carrito(req.flow_token, carrito)
-            return req.respond(screen="RESUMEN", data={"resumen_texto": resumen_txt})
-        print({
-            "items_texto": formato_carrito(carrito, agregado=f"{fi_codigo} × {cantidad}"),
-            "error": " ",
-            "show_error": False,
-        })
-        return req.respond(screen="PRODUCTO", data={
-            "items_texto": formato_carrito(carrito, agregado=f"{fi_codigo} × {cantidad}"),
-            "error": " ",
-            "show_error": False,
-        })
+        return req.respond(
+            screen="PRODUCTO",
+            data=data_producto(carrito, agregado=f"{fi_codigo} × {cantidad}"),
+        )
+
+    # ── totalizar: calcular totales y navegar a RESUMEN ───────────────────────
+    if action == "totalizar":
+        if not carrito.get("productos"):
+            return req.respond(
+                screen="PRODUCTO",
+                data=data_producto(carrito, error="Agrega al menos un producto."),
+            )
+        resumen_txt, carrito = _calcular_totales_y_resumen(carrito)
+        redis_cache.guardar_carrito(req.flow_token, carrito)
+        return req.respond(screen="RESUMEN", data={"resumen_texto": resumen_txt})
 
     return req.respond(screen="CLIENTE", data={}, error_message="Acción desconocida.")
 
