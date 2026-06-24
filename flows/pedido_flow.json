@@ -1,0 +1,205 @@
+{
+  "version": "6.2",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "CLIENTE":  ["PRODUCTO"],
+    "PRODUCTO": ["RESUMEN"],
+    "RESUMEN":  []
+  },
+  "screens": [
+
+    {
+      "id": "CLIENTE",
+      "title": "Nuevo Pedido",
+      "data": {
+        "clientes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "J123456789", "title": "CLIENTE DEMO S.A." }
+          ]
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "Form",
+            "name": "form_cliente",
+            "children": [
+              {
+                "type": "Dropdown",
+                "label": "Cliente",
+                "name": "cliente_id",
+                "data-source": "${data.clientes}",
+                "required": true
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "label": "Lista de precios",
+                "name": "tipo_precio",
+                "required": false,
+                "data-source": [
+                  { "id": "P1", "title": "P1 - Lista 1" },
+                  { "id": "P2", "title": "P2 - Lista 2" }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Siguiente",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "action":      "select_client",
+                "cliente_id":  "${form.cliente_id}",
+                "tipo_precio": "${form.tipo_precio}"
+              }
+            }
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "PRODUCTO",
+      "title": "Agregar Productos",
+      "data": {
+        "items_texto": {
+          "type": "string",
+          "__example__": "Sin productos agregados aun."
+        },
+        "error": {
+          "type": "string",
+          "__example__": " "
+        },
+        "show_error": {
+          "type": "boolean",
+          "__example__": false
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "Carrito:"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.items_texto}"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.error}",
+            "visible": "${data.show_error}"
+          },
+          {
+            "type": "Form",
+            "name": "form_producto",
+            "children": [
+              {
+                "type": "TextInput",
+                "label": "Codigo de producto",
+                "name": "codigo",
+                "input-type": "text",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "label": "Cantidad",
+                "name": "cantidad",
+                "input-type": "number",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "label": "Descuento %",
+                "name": "descuento",
+                "input-type": "number",
+                "required": false
+              },
+              {
+                "type": "CheckboxGroup",
+                "label": "Finalizar pedido",
+                "name": "es_ultimo",
+                "required": false,
+                "data-source": [
+                  { "id": "si", "title": "Este es el ultimo producto" }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Agregar Producto",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "action":    "add_product",
+                "codigo":    "${form.codigo}",
+                "cantidad":  "${form.cantidad}",
+                "descuento": "${form.descuento}",
+                "es_ultimo": "${form.es_ultimo}"
+              }
+            }
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "RESUMEN",
+      "title": "Confirmar Pedido",
+      "terminal": true,
+      "data": {
+        "resumen_texto": {
+          "type": "string",
+          "__example__": "Base 16%: $0.00\nIVA 16%:  $0.00\nTotal Neto: $0.00"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.resumen_texto}"
+          },
+          {
+            "type": "Form",
+            "name": "form_resumen",
+            "children": [
+              {
+                "type": "TextInput",
+                "label": "Comentario (opcional)",
+                "name": "comentario",
+                "required": false,
+                "input-type": "text"
+              },
+              {
+                "type": "Footer",
+                "label": "Confirmar Pedido",
+                "on-click-action": {
+                  "name": "complete",
+                  "payload": {
+                    "nuevo_pedido": {
+                      "comentario": "${form.comentario}"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+  ]
+}
