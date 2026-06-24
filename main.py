@@ -390,7 +390,8 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
     if action == "select_client":
         carrito["cliente"]     = data.get("cliente_id", "")
         carrito["tipo_precio"] = data.get("tipo_precio", "P1")
-        print(f"[FLOW] select_client cliente={carrito['cliente']} precio={carrito['tipo_precio']}")
+        carrito["sistema"]     = data.get("sistema", "")
+        print(f"[FLOW] select_client cliente={carrito['cliente']} precio={carrito['tipo_precio']} sistema={carrito['sistema']}")
         redis_cache.guardar_carrito(req.flow_token, carrito)
         return req.respond(screen="PRODUCTO", data={
             "items_texto": formato_carrito(carrito),
@@ -448,7 +449,11 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
             resumen_txt, carrito = _calcular_totales_y_resumen(carrito)
             redis_cache.guardar_carrito(req.flow_token, carrito)
             return req.respond(screen="RESUMEN", data={"resumen_texto": resumen_txt})
-
+        print({
+            "items_texto": formato_carrito(carrito, agregado=f"{fi_codigo} × {cantidad}"),
+            "error": " ",
+            "show_error": False,
+        })
         return req.respond(screen="PRODUCTO", data={
             "items_texto": formato_carrito(carrito, agregado=f"{fi_codigo} × {cantidad}"),
             "error": " ",
@@ -492,6 +497,7 @@ def completar_pedido_flow(client: WhatsApp, flow: FlowCompletion):
         "productos": carrito.get("productos", {}),
         "precio": carrito.get("tipo_precio", "P1"),
         "comentario": carrito.get("comentario", ""),
+        "sistema": carrito.get("sistema", ""),
         "total": 0.0,
     }
     handler_chain = ClienteHandler(ProductoHandler())
