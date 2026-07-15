@@ -4,6 +4,7 @@ from datetime import datetime
 from pydbisam import PyDBISAM
 import uuid
 from datetime import datetime
+from database.impuestos import slots_impuesto_linea, campos_impuesto_cabecera
 
 class DBISAMDatabase:
     def __init__(self, catalog: str | None = None):
@@ -182,8 +183,10 @@ class DBISAMDatabase:
         try:
             detalle_query = []
             linea = 0
-            ID_PEDIDO = f"WS{uuid.uuid4().hex[:10].upper()}"  
+            ID_PEDIDO = f"WS{uuid.uuid4().hex[:10].upper()}"
+            cab = campos_impuesto_cabecera(pedido)
             for codigo, detalles in pedido['productos'].items():
+                slots = slots_impuesto_linea(detalles['impuesto'], detalles['monto_iva'])
                 # Nota: se eliminaron las declaraciones duplicadas de FDI_PRECIODEVENTA y
                 # FDI_PRECIOBASECOMISION que existían antes (una en cada par columna/valor).
                 # FDI_PORCENTIMPUESTO1 ahora refleja si el ítem tiene algún impuesto (>0).
@@ -204,6 +207,9 @@ class DBISAMDatabase:
                                                         FDI_IMPUESTO1,
                                                         FDI_PORCENTIMPUESTO1,
                                                         FDI_MONTOIMPUESTO1,
+                                                        FDI_IMPUESTO2,
+                                                        FDI_PORCENTIMPUESTO2,
+                                                        FDI_MONTOIMPUESTO2,
                                                         FDI_PORCENTDESCPARCIAL,
                                                         FDI_DESCUENTOPARCIAL,
                                                         FDI_PRECIOSINDESCUENTO,
@@ -229,9 +235,12 @@ class DBISAMDatabase:
                                                         {detalles['cantidad']},
                                                         LASTAUTOINC('SOPERACIONINV'),
                                                         {linea},
-                                                        {detalles['impuesto']},
-                                                        {1 if detalles['impuesto'] > 0 else 0},
-                                                        {detalles['monto_iva']},
+                                                        {slots['imp1']},
+                                                        {slots['porc1']},
+                                                        {slots['monto1']},
+                                                        {slots['imp2']},
+                                                        {slots['porc2']},
+                                                        {slots['monto2']},
                                                         {detalles['descuento']},
                                                         {round(detalles['precio_sin_iva'] * (detalles['descuento']/ 100), 2)},
                                                         {detalles['precio_sin_iva']},
@@ -270,7 +279,10 @@ class DBISAMDatabase:
                                                                  FTI_DESCUENTO1ORIGEN,
                                                                  FTI_BASEIMPONIBLE,
                                                                  FTI_IMPUESTO1PORCENT,
-                                                                 FTI_IMPUESTO1MONTO,     
+                                                                 FTI_IMPUESTO1MONTO,
+                                                                 FTI_BASEIMPONIBLE2,
+                                                                 FTI_IMPUESTO2PORCENT,
+                                                                 FTI_IMPUESTO2MONTO,
                                                                  FTI_TOTALNETO,
                                                                  FTI_RIFCLIENTE,
                                                                  FTI_PERSONACONTACTO,
@@ -293,9 +305,12 @@ class DBISAMDatabase:
                                                 0,
                                                 0,
                                                 1,
-                                                {pedido['baseimponible']},
-                                                16,
-                                                {pedido['iva_16']},
+                                                {cab['base_imponible']},
+                                                {cab['imp1_porcent']},
+                                                {cab['imp1_monto']},
+                                                {cab['base_imponible2']},
+                                                {cab['imp2_porcent']},
+                                                {cab['imp2_monto']},
                                                 {pedido['total_neto']},
                                                 '{pedido['cliente']}',
                                                 '{pedido['descripcion_cliente']}',
