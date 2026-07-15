@@ -6,6 +6,15 @@ import uuid
 from datetime import datetime
 from database.impuestos import slots_impuesto_linea, campos_impuesto_cabecera
 
+# Tasa efectiva de IVA de un ítem: la tasa real vive en FIC_IMP0xMONTO
+# (no es un literal 16/8). Cada impuesto se valida con SU propio flag exento.
+# Un ítem tiene una sola tasa aplicable, así que la suma da la tasa efectiva.
+IMPUESTO_EFECTIVO_SQL = (
+    "(CASE WHEN FIC_IMP01ACTIVO = 1 AND FIC_IMP01EXENTO = 0 THEN FIC_IMP01MONTO ELSE 0 END)"
+    " + (CASE WHEN FIC_IMP02ACTIVO = 1 AND FIC_IMP02EXENTO = 0 THEN FIC_IMP02MONTO ELSE 0 END)"
+)
+
+
 class DBISAMDatabase:
     def __init__(self, catalog: str | None = None):
         self.dsn = config('DSN')
@@ -107,12 +116,8 @@ class DBISAMDatabase:
                     #print(productos_con_codigo_barra, productos_referencia)
                     #print(productos_referencia_codigo_barra, len(productos_referencia)
                     #print(productos_referencia_codigo_barra)
-                    query=f"""SELECT FI_CODIGO, 
-                                        CASE WHEN FIC_IMP01ACTIVO = 1 AND FIC_IMP01EXENTO = 0 THEN 16
-                                             WHEN FIC_IMP02ACTIVO = 1 AND FIC_IMP01EXENTO = 0 THEN 8
-                                             WHEN FIC_IMP01ACTIVO = 0 AND FIC_IMP01EXENTO = 1 THEN 0
-                                        ELSE 0
-                                        END AS IMPUESTO,
+                    query=f"""SELECT FI_CODIGO,
+                                        {IMPUESTO_EFECTIVO_SQL} AS IMPUESTO,
                                         FIC_{precios.get(tipo_precio)}PRECIOTOTALEXT,
                                         FI_DESCRIPCION,
                                         FI_PESOPRODUCTO,
