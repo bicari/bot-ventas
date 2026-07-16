@@ -21,7 +21,7 @@ from flows.routing import inferir_accion_flow
 from flows.carrito import data_producto
 from database.postgres import create_tables_and_db
 from sqlmodel import create_engine, Session
-from pdf.weasy import generar_factura
+from pdf.factory import get_generador_pdf
 from decouple import config
 import uuid
 import logging
@@ -182,7 +182,7 @@ def handle_message(client: WhatsApp, msg: types.Message):
          return
         
      pedido['id'] = 'PRELIMINAR'
-     pdf_buffer = generar_factura(filename=f'static/media/pedido_preliminar.pdf', pedido=pedido, logo_path='pdf/marluis.png', preliminar=True)
+     pdf_buffer = get_generador_pdf()(filename='static/media/pedido_preliminar.pdf', pedido=pedido, preliminar=True)
      
      items = (list(map(
                  lambda x: """📦Código: {code}\nCantidad: {qty}\nPrecio: ${price}\n{precio_con_descuento}Subtotal: ${sub}\n""".format(code=x, qty=pedido['productos'][x]['cantidad'], price=pedido['productos'][x]['precio'], sub=pedido['productos'][x]['subtotal'], precio_con_descuento=f"`Precio Descuento:${pedido['productos'][x]['precio_venta'] }`\n" if pedido['productos'][x]['descuento'] > 0 else '' ), pedido['productos'].keys())))
@@ -498,8 +498,8 @@ def completar_pedido_flow(client: WhatsApp, flow: FlowCompletion):
 
     # Generar preliminar y enviar (mismo flujo que texto)
     pedido['id'] = 'PRELIMINAR'
-    pdf_buffer = generar_factura(filename='static/media/pedido_preliminar.pdf',
-                                 pedido=pedido, logo_path='pdf/marluis.png', preliminar=True)
+    pdf_buffer = get_generador_pdf()(filename='static/media/pedido_preliminar.pdf',
+                                     pedido=pedido, preliminar=True)
 
     lineas_resumen = [f"Hola {flow.from_user.name}, Por favor confirma tu pedido!!"]
     if pedido.get('base_16', 0) > 0:
