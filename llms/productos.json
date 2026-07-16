@@ -1,0 +1,26 @@
+[
+    {
+        "id": "p001",
+        "nombre": "MANTECA VEGETAL LA COJEDEÑA CAJA 10KG",
+        "presentacion": "CAJA 10KG",
+        "uso": "Freír, cocina general, restaurantes, panaderías",
+        "industria": "Alimentos",
+        "caracteristicas": "Alta estabilidad al calor"
+    },
+    {
+        "id": "p002",
+        "nombre": "OLEINA DE PALMA 18 LTS",
+        "presentacion": "PAILA 18L",
+        "uso": "Frituras profundas, empanadas, tequeños",
+        "industria": "Procesadoras de alimentos",
+        "caracteristicas": "Mayor vida útil y estabilidad térmica"
+    },
+    {
+        "id": "p003",
+        "nombre": "MANTECA VEGETAL LA COJEDEÑA PANADERA CAJA 15KG",
+        "presentacion": "15kg",
+        "uso": "Panadería, repostería, hojaldre",
+        "industria": "Panificadoras",
+        "caracteristicas": "Excelente rendimiento en masas"
+    }
+]

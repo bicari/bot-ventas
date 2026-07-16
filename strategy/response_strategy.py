@@ -5,7 +5,7 @@ from database.catalogos import catalogo_de_sistema
 from sqlmodel import Session
 from datetime import datetime
 from sqlmodel import SQLModel
-from pdf.weasy import generar_factura
+from pdf.factory import get_generador_pdf
 
 class RespuestaPedidoStrategy:
     def execute(self, client: WhatsApp, user: str): #btn: CallbackButton):
@@ -58,7 +58,7 @@ class ConfirmarStrategy(RespuestaPedidoStrategy):
         pedido["id"] = id_pedido
         #session.refresh(pedido_postgre)
         DBISAMDatabase(catalog=catalogo_de_sistema(pedido.get("sistema"))).insert_pedidos(pedido)
-        generar_factura(filename=f'static/media/pedido{pedido["id"]}.pdf', pedido=pedido, logo_path='pdf/marluis.png')
+        get_generador_pdf()(filename=f'static/media/pedido{pedido["id"]}.pdf', pedido=pedido)
         client.send_document(
             to=user,
             document=f'static/media/pedido{pedido["id"]}.pdf',

@@ -30,3 +30,20 @@ class PedidoCache:
     
     def eliminar_pedido_user(self, user_id: str):
         pass
+
+    # ---- Carrito para el Flow de toma de pedido (Fase B) ----
+
+    def guardar_carrito(self, flow_token: str, carrito: dict, ttl: int = 3600):
+        """Guarda el carrito en construcción durante el Flow de pedido, indexado por flow_token."""
+        key = f"carrito:{flow_token}"
+        self.client.setex(key, ttl, json.dumps(carrito))
+
+    def obtener_carrito(self, flow_token: str) -> dict | None:
+        """Recupera el carrito del Flow de pedido por flow_token."""
+        key = f"carrito:{flow_token}"
+        data = self.client.get(key)
+        return json.loads(data) if data else None
+
+    def eliminar_carrito(self, flow_token: str):
+        """Elimina el carrito al finalizar o cancelar el Flow de pedido."""
+        self.client.delete(f"carrito:{flow_token}")
