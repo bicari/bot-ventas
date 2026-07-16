@@ -13,7 +13,7 @@ EMPRESA_DIRECCION = ("Calle 4, Parcela No. C, Zona Industrial Municipal Etapa I,
                      "Tinaquillo Edo. Cojedes Teléfonos: (0258) 766.3191 - 766.5627")
 EMPRESA_RIF = "J-29801313-3"
 EMPRESA_EMAILS = "ventas@ecograsas.com  info@ecograsas.com"
-LOGO_ECOGRASAS = None  # placeholder de texto hasta tener el archivo del logo
+LOGO_ECOGRASAS = "Logo PE.jpg"  # ruta relativa a la raíz del proyecto; None => placeholder de texto
 
 
 def _money(valor, dec=2):
