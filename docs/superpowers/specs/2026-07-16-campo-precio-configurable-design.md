@@ -103,9 +103,17 @@ para `P03`, se sabe al bootear y no cuando un vendedor pida `P3`.
 
 ### Las tres capas de validación
 
-**1. Formato** — `^[A-Z0-9]+$`. Rechaza minúsculas, espacios, comillas y guiones.
-No es cosmético: el valor se interpola en el SQL (el driver ODBC de DBISAM no
-acepta parámetros), y esta regex es lo que impide que el `.env` inyecte SQL.
+**1. Formato** — el valor se normaliza con `.strip().upper()` y después se exige
+`^[A-Z0-9]+$`. Se normaliza en vez de rechazar, siguiendo el precedente de
+`pdf/factory.py` (que hace `.strip().lower()`): las columnas de DBISAM son
+mayúsculas, así que `preciototalext` es un typo inofensivo y se acepta. El
+`.strip()` no es de adorno — el `.env` de este proyecto ya tiene valores con
+espacio inicial (`DSN= A2GKC`).
+
+Lo que la regex rechaza es todo lo que no sea alfanumérico: espacios internos,
+comillas, guiones, punto y coma. No es cosmético — el valor se interpola en el
+SQL (el driver ODBC de DBISAM no acepta parámetros), y esta regex es lo que
+impide que el `.env` inyecte SQL.
 
 **2. `IPRECIOTOTAL` rechazado** — trae el IVA incluido, y `Validar_Pedido.py:69-70`
 lo sumaría otra vez sobre el precio. Configurarlo facturaría con IVA doble sin
@@ -114,9 +122,13 @@ ningún error visible. Es la única columna donde hay prueba (ratio 1.1600 medid
 **3. Existencia real** — contra el esquema de `A2INVCOSTOSPRECIOS`. El mensaje de
 error lista las **variantes** disponibles, no las columnas crudas: se derivan
 tomando las columnas que empiezan con `FIC_P01` y quitándoles ese prefijo, lo que
-produce `PRECIOSINIMPUESTO, IPRECIOTOTAL, PRECIOTOTALEXT` en vez de volcar las
-~30 columnas de la tabla. Es la misma idea que `factory.py` listando los formatos
-válidos. Esa derivación es lógica pura y va en `validar_campo_precio`.
+produce `PRECIOSINIMPUESTO, PRECIOTOTALEXT` en vez de volcar las ~30 columnas de
+la tabla. Es la misma idea que `factory.py` listando los formatos válidos. Esa
+derivación es lógica pura y va en `validar_campo_precio`.
+
+La lista **excluye `IPRECIOTOTAL`** aunque exista en el esquema: la capa 2 lo
+rechaza, y sugerirlo mandaría al usuario derecho al IVA doble. Un mensaje de
+error que ofrece la única opción prohibida es peor que no dar opciones.
 
 ### Manejo de errores
 
@@ -140,14 +152,18 @@ la columna equivocada.**
 patrón de `tests/test_factory_pdf.py`:
 
 1. Sin `CAMPO_PRECIO` → default `PRECIOTOTALEXT`.
-2. Formato inválido: minúscula → `ValueError`.
-3. Formato inválido: espacio → `ValueError`.
+2. Minúsculas y espacios alrededor → se normaliza (`" preciototalext "` →
+   `PRECIOTOTALEXT`), no es error.
+3. Formato inválido: espacio interno → `ValueError`.
 4. Formato inválido: comilla simple (intento de inyección) → `ValueError`.
 5. `IPRECIOTOTAL` → `ValueError` cuyo mensaje menciona el IVA.
-6. Columna inexistente → `ValueError` cuyo mensaje lista las variantes derivadas
-   (`PRECIOSINIMPUESTO, IPRECIOTOTAL, PRECIOTOTALEXT`) y no las columnas crudas.
-7. Columna válida presente en las tres tiers → pasa.
-8. Columna válida en `P01` pero ausente en `P03` → `ValueError`.
+6. `ipreciototal` en minúsculas → también rechazado (se normaliza antes de
+   comparar, así que el rechazo no se esquiva escribiéndolo distinto).
+7. Columna inexistente → `ValueError` cuyo mensaje lista las variantes derivadas
+   (`PRECIOSINIMPUESTO, PRECIOTOTALEXT`) y no las columnas crudas.
+8. Las variantes sugeridas no incluyen `IPRECIOTOTAL`, que está rechazado.
+9. Columna válida presente en las tres tiers → pasa.
+10. Columna válida en `P01` pero ausente en `P03` → `ValueError`.
 
 Verificación manual contra DBISAM real: arrancar el servidor con
 `CAMPO_PRECIO=PRECIOTOTALEX` (typo) y comprobar que no levanta; arrancar con
