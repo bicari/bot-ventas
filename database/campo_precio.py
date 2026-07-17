@@ -46,21 +46,25 @@ def get_campo_precio() -> str:
 
 
 def _variantes_disponibles(columnas) -> list:
-    """Deriva las variantes legibles quitando el prefijo FIC_P01 de las columnas.
+    """Deriva las variantes de precio sugeribles a partir de las columnas reales.
 
     Convierte {'FIC_P01PRECIOTOTALEXT', ...} en ['PRECIOTOTALEXT', ...], que es
     lo que el usuario escribe en CAMPO_PRECIO. Volcar las ~30 columnas crudas no
     le serviria de nada.
 
-    Excluye _CON_IVA_INCLUIDO: existe en el esquema, pero get_campo_precio lo
-    rechaza, y sugerirlo mandaria al usuario derecho al IVA doble.
+    Filtra dos veces, y ambas importan:
+
+    - Solo las que contienen PRECIO. El prefijo FIC_P01 lo comparten columnas
+      que no son precios (TIPOROUND, PORCENTUTILIDAD, IMTOIMPUESTO01); existen,
+      asi que pasarian la validacion de existencia, pero cotizarian con basura.
+    - Sin _CON_IVA_INCLUIDO, que get_campo_precio rechaza y mandaria al IVA doble.
+
+    Sugerir una opcion que va a fallar es peor que no sugerir ninguna. Esto no
+    restringe que se configure: la validacion sigue siendo por existencia real.
     """
     prefijo = "FIC_" + TIERS[0]
-    return sorted(
-        c[len(prefijo):]
-        for c in columnas
-        if c.startswith(prefijo) and c[len(prefijo):] != _CON_IVA_INCLUIDO
-    )
+    variantes = (c[len(prefijo):] for c in columnas if c.startswith(prefijo))
+    return sorted(v for v in variantes if "PRECIO" in v and v != _CON_IVA_INCLUIDO)
 
 
 def validar_campo_precio(campo, columnas_existentes) -> None:

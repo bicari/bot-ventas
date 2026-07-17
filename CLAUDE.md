@@ -79,6 +79,7 @@ Mensaje "\crear_cliente"
 DSN=A2GKC                                        # DSN ODBC para DBISAM
 CatalogName=C:\a2Softway12.36.ID\Empre001\Data   # Ruta al catálogo DBISAM
 FORMATO_PDF=marluis                              # Formato de impresión: marluis | ecograsas
+CAMPO_PRECIO=PRECIOTOTALEXT                      # Variante de precio en A2INVCOSTOSPRECIOS
 Postgres=postgresql://user:pass@localhost:5432/appksa
 PHONE_ID=<WhatsApp Business Phone ID>
 TOKEN=<WhatsApp Business API token>
@@ -104,6 +105,7 @@ curl -X POST "https://graph.facebook.com/v21.0/<PHONE_ID>/whatsapp_business_encr
 - **DBISAM** es un sistema legado con rutas Windows específicas; las consultas SQL están en `database/dbisam.py` y son sensibles al esquema de tablas `SVENDEDORES`, `SCLIENTES`, `SINVENTARIO`, `A2INVCOSTOSPRECIOS`, `SOPERACIONINV`, `SDETALLEVENTA`.
 - **Flow IDs de WhatsApp** configurables en `.env` (antes estaban hardcodeados en `main.py`). Deben existir en la cuenta de WhatsApp Business.
 - **PDF preliminares** se generan en memoria (`BytesIO`); los PDF finales se guardan en disco en `static/media/`.
+- **`CAMPO_PRECIO`** elige la variante de precio de `A2INVCOSTOSPRECIOS` (`FIC_{P01|P02|P03}{CAMPO_PRECIO}`). Default `PRECIOTOTALEXT`. Se valida en el `lifespan` de FastAPI: un typo impide levantar el servidor, en vez de reventar a mitad de un pedido. `IPRECIOTOTAL` está rechazado a propósito porque trae el IVA incluido y `Validar_Pedido` lo sumaría de nuevo (IVA doble). Ojo: **las variantes no son equivalentes** — para el mismo producto, `PRECIOTOTALEXT` da 52.67 y `PRECIOSINIMPUESTO` da 7473.75, y no hay relación aritmética entre ellas.
 - **Formato de mensaje** que parsea el sistema:
   ```
   <Código Cliente>

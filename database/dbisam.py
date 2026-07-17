@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 from database.impuestos import slots_impuesto_linea, campos_impuesto_cabecera
 from database.consulta_precios import codigos_para_fi_codigo, lista_sql, mapear_resultados
+from database.campo_precio import get_campo_precio
 
 # Tasa efectiva de IVA de un ítem: la tasa real vive en FIC_IMP0xMONTO
 # (no es un literal 16/8). Cada impuesto se valida con SU propio flag exento.
@@ -26,6 +27,19 @@ class DBISAMDatabase:
     def connect_dbisam(self):
         conn = pyodbc.connect(f'DSN={self.dsn};CatalogName={self.catalog}')
         return conn
+
+    def columnas_precio(self) -> set:
+        """Nombres de columna de A2INVCOSTOSPRECIOS, para validar CAMPO_PRECIO.
+
+        Sin logica: solo trae nombres. Quien decide es validar_campo_precio, que
+        es pura y se prueba sin DBISAM.
+        """
+        with self.connect_dbisam() as conn:
+            with conn.cursor() as cursor:
+                return {
+                    c.column_name.upper()
+                    for c in cursor.columns(table="A2INVCOSTOSPRECIOS")
+                }
     
     def consultar_vendedores_con_acceso(self):
         try:
@@ -130,7 +144,7 @@ class DBISAMDatabase:
 
                     query = f"""SELECT FI_CODIGO,
                                        {IMPUESTO_EFECTIVO_SQL} AS IMPUESTO,
-                                       FIC_{sufijo}PRECIOTOTALEXT,
+                                       FIC_{sufijo}{get_campo_precio()},
                                        FI_DESCRIPCION,
                                        FI_PESOPRODUCTO,
                                        FI_REFERENCIA

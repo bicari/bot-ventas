@@ -61,13 +61,17 @@ def test_ipreciototal_rechazado_tambien_en_minusculas(monkeypatch):
         campo_precio.get_campo_precio()
 
 
-# Columnas de A2INVCOSTOSPRECIOS tal como las devuelve el esquema real,
-# recortadas a lo que importa para estas pruebas.
+# Columnas de A2INVCOSTOSPRECIOS tal como las devuelve el esquema real.
+# Incluye las que NO son precios (TIPOROUND, PORCENTUTILIDAD, IMTOIMPUESTO01):
+# comparten el prefijo FIC_P01 pero no son variantes de precio, y ofrecerlas
+# como opcion mandaria a cotizar con basura.
 COLUMNAS_REALES = {
     "FIC_CODEITEM",
     "FIC_P01PRECIOSINIMPUESTO", "FIC_P01IPRECIOTOTAL", "FIC_P01PRECIOTOTALEXT",
     "FIC_P02PRECIOSINIMPUESTO", "FIC_P02IPRECIOTOTAL", "FIC_P02PRECIOTOTALEXT",
     "FIC_P03PRECIOSINIMPUESTO", "FIC_P03IPRECIOTOTAL", "FIC_P03PRECIOTOTALEXT",
+    "FIC_P01TIPOROUND", "FIC_P01PORCENTUTILIDAD", "FIC_P01IMTOIMPUESTO01",
+    "FIC_P01UTILIDAD", "FIC_P01UTILIDADEXT",
 }
 
 
@@ -98,6 +102,21 @@ def test_las_variantes_sugeridas_no_incluyen_ipreciototal():
     with pytest.raises(ValueError) as exc:
         campo_precio.validar_campo_precio("NOEXISTE", COLUMNAS_REALES)
     assert "IPRECIOTOTAL" not in str(exc.value)
+
+
+def test_las_variantes_sugeridas_solo_incluyen_columnas_de_precio():
+    """El prefijo FIC_P01 lo comparten columnas que no son precios.
+
+    TIPOROUND, PORCENTUTILIDAD e IMTOIMPUESTO01 existen y pasarian la
+    validacion de existencia, pero cotizarian con basura: no sugerirlas.
+    """
+    with pytest.raises(ValueError) as exc:
+        campo_precio.validar_campo_precio("NOEXISTE", COLUMNAS_REALES)
+    mensaje = str(exc.value)
+    assert "TIPOROUND" not in mensaje
+    assert "PORCENTUTILIDAD" not in mensaje
+    assert "IMTOIMPUESTO01" not in mensaje
+    assert "UTILIDAD" not in mensaje
 
 
 def test_falta_en_un_tier_es_error():

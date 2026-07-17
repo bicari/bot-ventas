@@ -20,6 +20,7 @@ from database.redis import PedidoCache
 from flows.routing import inferir_accion_flow
 from flows.carrito import data_producto
 from database.postgres import create_tables_and_db
+from database.campo_precio import get_campo_precio, validar_campo_precio
 from sqlmodel import create_engine, Session
 from pdf.factory import get_generador_pdf
 from decouple import config
@@ -44,6 +45,9 @@ def get_session():
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
     create_tables_and_db()
+    # Un CAMPO_PRECIO mal escrito debe impedir arrancar, no reventar a mitad
+    # de un pedido con un error de sintaxis de DBISAM.
+    validar_campo_precio(get_campo_precio(), DBISAMDatabase().columnas_precio())
     yield
 
 fastapi_app = fastapi.FastAPI()
