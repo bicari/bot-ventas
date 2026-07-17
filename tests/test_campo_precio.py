@@ -59,3 +59,50 @@ def test_ipreciototal_rechazado_tambien_en_minusculas(monkeypatch):
     _con_valor(monkeypatch, "ipreciototal")
     with pytest.raises(ValueError, match="(?i)iva"):
         campo_precio.get_campo_precio()
+
+
+# Columnas de A2INVCOSTOSPRECIOS tal como las devuelve el esquema real,
+# recortadas a lo que importa para estas pruebas.
+COLUMNAS_REALES = {
+    "FIC_CODEITEM",
+    "FIC_P01PRECIOSINIMPUESTO", "FIC_P01IPRECIOTOTAL", "FIC_P01PRECIOTOTALEXT",
+    "FIC_P02PRECIOSINIMPUESTO", "FIC_P02IPRECIOTOTAL", "FIC_P02PRECIOTOTALEXT",
+    "FIC_P03PRECIOSINIMPUESTO", "FIC_P03IPRECIOTOTAL", "FIC_P03PRECIOTOTALEXT",
+}
+
+
+def test_campo_valido_en_los_tres_tiers_pasa():
+    assert campo_precio.validar_campo_precio("PRECIOTOTALEXT", COLUMNAS_REALES) is None
+
+
+def test_campo_inexistente_es_error():
+    with pytest.raises(ValueError):
+        campo_precio.validar_campo_precio("PRECIOTOTALEX", COLUMNAS_REALES)
+
+
+def test_error_lista_las_variantes_no_las_columnas_crudas():
+    """El mensaje debe ser accionable: las variantes, no las ~30 columnas."""
+    with pytest.raises(ValueError) as exc:
+        campo_precio.validar_campo_precio("NOEXISTE", COLUMNAS_REALES)
+    mensaje = str(exc.value)
+    assert "PRECIOTOTALEXT" in mensaje
+    assert "PRECIOSINIMPUESTO" in mensaje
+    assert "FIC_CODEITEM" not in mensaje  # no vuelca columnas que no son variantes
+
+
+def test_las_variantes_sugeridas_no_incluyen_ipreciototal():
+    """No sugerir la única columna que get_campo_precio rechaza.
+
+    Existe en el esquema, pero mandaría al usuario derecho al IVA doble.
+    """
+    with pytest.raises(ValueError) as exc:
+        campo_precio.validar_campo_precio("NOEXISTE", COLUMNAS_REALES)
+    assert "IPRECIOTOTAL" not in str(exc.value)
+
+
+def test_falta_en_un_tier_es_error():
+    """Si existe para P01 pero no para P03, se sabe al arrancar y no cuando
+    un vendedor pida P3."""
+    columnas = COLUMNAS_REALES - {"FIC_P03PRECIOTOTALEXT"}
+    with pytest.raises(ValueError, match="FIC_P03PRECIOTOTALEXT"):
+        campo_precio.validar_campo_precio("PRECIOTOTALEXT", columnas)

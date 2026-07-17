@@ -43,3 +43,37 @@ def get_campo_precio() -> str:
         )
 
     return campo
+
+
+def _variantes_disponibles(columnas) -> list:
+    """Deriva las variantes legibles quitando el prefijo FIC_P01 de las columnas.
+
+    Convierte {'FIC_P01PRECIOTOTALEXT', ...} en ['PRECIOTOTALEXT', ...], que es
+    lo que el usuario escribe en CAMPO_PRECIO. Volcar las ~30 columnas crudas no
+    le serviria de nada.
+
+    Excluye _CON_IVA_INCLUIDO: existe en el esquema, pero get_campo_precio lo
+    rechaza, y sugerirlo mandaria al usuario derecho al IVA doble.
+    """
+    prefijo = "FIC_" + TIERS[0]
+    return sorted(
+        c[len(prefijo):]
+        for c in columnas
+        if c.startswith(prefijo) and c[len(prefijo):] != _CON_IVA_INCLUIDO
+    )
+
+
+def validar_campo_precio(campo, columnas_existentes) -> None:
+    """Verifica que FIC_{tier}{campo} exista para todos los tiers en uso.
+
+    columnas_existentes: nombres de columna de A2INVCOSTOSPRECIOS.
+    Lanza ValueError si falta alguna.
+    """
+    columnas = {c.upper() for c in columnas_existentes}
+    faltantes = [f"FIC_{t}{campo}" for t in TIERS if f"FIC_{t}{campo}" not in columnas]
+    if faltantes:
+        raise ValueError(
+            f"CAMPO_PRECIO={campo!r} no existe en A2INVCOSTOSPRECIOS: "
+            f"faltan {', '.join(faltantes)}. "
+            f"Variantes disponibles: {', '.join(_variantes_disponibles(columnas))}"
+        )
