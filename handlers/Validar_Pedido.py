@@ -36,8 +36,9 @@ class ClienteHandler(Handler):
 
 class ProductoHandler(Handler):
     def handle(self, pedido: Pedido, user_id: str) -> ValueError | bool:
-        productos = [producto for producto in pedido['productos'].keys()]
-        productos.sort(key=int)
+        # Orden lexicográfico: los códigos pueden ser alfanuméricos (FI_REFERENCIA
+        # como 'PT0201001'), así que ordenar con key=int revienta.
+        productos = sorted(pedido['productos'].keys())
         try:
             query_products, not_found = DBISAMDatabase().consultar_precios(productos=productos, tipo_precio=pedido['precio'])
         except DatabaseError as e:
