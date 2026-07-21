@@ -36,6 +36,23 @@ def formato_carrito(carrito: dict, agregado: Optional[str] = None) -> str:
     return cuerpo
 
 
+def construir_pedido(carrito: dict, respuesta: dict) -> dict:
+    """Arma el pedido del completion del Flow a partir del carrito de Redis.
+
+    El comentario NO está en el carrito: el vendedor lo escribe en la pantalla
+    RESUMEN y llega en la respuesta del Flow (``nuevo_pedido.comentario``).
+    Tomarlo del carrito era el bug que dejaba el PDF sin observaciones.
+    """
+    return {
+        "cliente": carrito.get("cliente", ""),
+        "productos": carrito.get("productos", {}),
+        "precio": carrito.get("tipo_precio", "P1"),
+        "comentario": respuesta.get("comentario") or carrito.get("comentario", ""),
+        "sistema": carrito.get("sistema", ""),
+        "total": 0.0,
+    }
+
+
 def data_producto(carrito: dict, error: Optional[str] = None, agregado: Optional[str] = None) -> dict:
     """Arma el bloque ``data`` de la pantalla PRODUCTO del Flow.
 

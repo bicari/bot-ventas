@@ -9,7 +9,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flows.carrito import formato_carrito, data_producto
+from flows.carrito import formato_carrito, data_producto, construir_pedido
 
 
 def _carrito(**prods):
@@ -81,6 +81,32 @@ def test_data_producto_con_agregado():
     assert d["tiene_items"] is True
 
 
+def test_construir_pedido_toma_comentario_del_completion():
+    """Regresión: el comentario viene en la respuesta del Flow (pantalla
+    RESUMEN), no en el carrito de Redis; se perdía y el PDF salía sin
+    observaciones."""
+    carrito = {"cliente": "V123", "productos": {"A": {"cantidad": 1}},
+               "tipo_precio": "P2", "sistema": "A"}
+    pedido = construir_pedido(carrito, {"comentario": "CREDITO 10 DIAS"})
+    assert pedido["comentario"] == "CREDITO 10 DIAS"
+    assert pedido["cliente"] == "V123"
+    assert pedido["productos"] == {"A": {"cantidad": 1}}
+    assert pedido["precio"] == "P2"
+    assert pedido["sistema"] == "A"
+    assert pedido["total"] == 0.0
+
+
+def test_construir_pedido_fallback_al_comentario_del_carrito():
+    pedido = construir_pedido({"comentario": "DEL CARRITO"}, {})
+    assert pedido["comentario"] == "DEL CARRITO"
+
+
+def test_construir_pedido_sin_comentario_queda_vacio():
+    pedido = construir_pedido({}, {})
+    assert pedido["comentario"] == ""
+    assert pedido["precio"] == "P1"
+
+
 def test_item_con_precio_manual_lleva_marcador():
     c = _carrito(ABC123={"cantidad": 5, "descuento": 0, "subtotal": 62.5,
                          "precio_manual": True})
@@ -104,6 +130,9 @@ if __name__ == "__main__":
     test_data_producto_con_items_marca_tiene_items()
     test_data_producto_con_error()
     test_data_producto_con_agregado()
+    test_construir_pedido_toma_comentario_del_completion()
+    test_construir_pedido_fallback_al_comentario_del_carrito()
+    test_construir_pedido_sin_comentario_queda_vacio()
     test_item_con_precio_manual_lleva_marcador()
     test_item_sin_precio_manual_no_lleva_marcador()
     print("OK: formato_carrito.")

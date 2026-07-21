@@ -18,7 +18,7 @@ from filtros.UserFiltro import user_with_auth
 from filtros.FlowFiltros import registrar_cliente, confirmar_pedido, nuevo_pedido_flow
 from database.redis import PedidoCache
 from flows.routing import inferir_accion_flow
-from flows.carrito import data_producto
+from flows.carrito import data_producto, construir_pedido
 from flows.precio_libre import resolver_precio_manual
 from handlers.calculo_item import calcular_item
 from database.postgres import create_tables_and_db
@@ -484,14 +484,7 @@ def completar_pedido_flow(client: WhatsApp, flow: FlowCompletion):
         return
 
     # Re-validar con la cadena de handlers (por si los precios cambiaron)
-    pedido = {
-        "cliente": carrito.get("cliente", ""),
-        "productos": carrito.get("productos", {}),
-        "precio": carrito.get("tipo_precio", "P1"),
-        "comentario": carrito.get("comentario", ""),
-        "sistema": carrito.get("sistema", ""),
-        "total": 0.0,
-    }
+    pedido = construir_pedido(carrito, respuesta)
     handler_chain = ClienteHandler(ProductoHandler())
     try:
         handler_chain.handle(pedido, user_id)
