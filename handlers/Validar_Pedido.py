@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from parser.parsear_pedido import Pedido
 from database.dbisam import DBISAMDatabase
+from handlers.calculo_item import calcular_item
 from pyodbc import DatabaseError
 
 class Handler(ABC):
@@ -60,19 +61,17 @@ class ProductoHandler(Handler):
             print('Productos encontrados')
             for codigo_original, query in query_products.items():
                 codigo, impuesto, precio, descripcion, peso, _ = query
-                if codigo in pedido["productos"] and precio > 0:
-                    precio_item = precio
-                    pedido["productos"][codigo]["descripcion"] = descripcion
-                    pedido["productos"][codigo]["impuesto"] =  impuesto
-                    pedido["productos"][codigo]["precio_sin_iva"] = round(precio_item, 2)
-                    pedido["productos"][codigo]["precio"] = round(precio_item * (pedido["productos"][codigo]["impuesto"] / 100 + 1), 2)
-                    pedido["productos"][codigo]["precio_con_descuento"] = round(precio_item - (precio_item * (pedido["productos"][codigo]["descuento"]/ 100)), 2)
-                    pedido["productos"][codigo]["monto_iva"]= round(pedido["productos"][codigo]["precio_con_descuento"] * (impuesto / 100),2)
-                    pedido["productos"][codigo]["precio_venta"] = round((pedido["productos"][codigo]["precio_con_descuento"] * (pedido["productos"][codigo]["impuesto"] / 100 + 1)),2)
-                    pedido["productos"][codigo]["subtotal"]= round(pedido["productos"][codigo]["precio_con_descuento"] * pedido["productos"][codigo]["cantidad"], 2)
-                    pedido["productos"][codigo]["total_sin_dcto"]= round(pedido["productos"][codigo]["precio_sin_iva"] * pedido["productos"][codigo]["cantidad"], 2)
-                    pedido["productos"][codigo]["peso_item"] = round(pedido["productos"][codigo]["cantidad"] * peso, 2)
-                else: raise ValueError(f"El producto `{codigo}` tiene un precio menor o igual a cero, por favor verifique.")    
+                item = pedido["productos"].get(codigo)
+                manual = bool(item and item.get("precio_manual"))
+                if item is not None and (manual or precio > 0):
+                    # Con precio manual, la base la puso el vendedor y la lista
+                    # no la pisa; impuesto/descripción/peso van siempre frescos.
+                    precio_item = item["precio_sin_iva"] if manual else precio
+                    item["descripcion"] = descripcion
+                    item["impuesto"] = impuesto
+                    item.update(calcular_item(precio_item, item["cantidad"],
+                                              item["descuento"], impuesto, peso))
+                else: raise ValueError(f"El producto `{codigo}` tiene un precio menor o igual a cero, por favor verifique.")
             
             prods = pedido["productos"]
 
