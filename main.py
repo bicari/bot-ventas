@@ -19,6 +19,8 @@ from filtros.FlowFiltros import registrar_cliente, confirmar_pedido, nuevo_pedid
 from database.redis import PedidoCache
 from flows.routing import inferir_accion_flow
 from flows.carrito import data_producto
+from flows.precio_libre import resolver_precio_manual
+from handlers.calculo_item import calcular_item
 from database.postgres import create_tables_and_db
 from database.campo_precio import get_campo_precio, validar_campo_precio
 from sqlmodel import create_engine, Session
@@ -415,19 +417,21 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
                 raise ValueError(f"Producto '{codigo}' no encontrado o inactivo.")
             row = prods_query[codigo]
             fi_codigo, impuesto, precio, descripcion, peso, _ = row
-            precio_con_desc = round(precio - precio * descuento / 100, 2)
-            monto_iva       = round(precio_con_desc * impuesto / 100, 2)
-            carrito["productos"][fi_codigo] = {
+            base_manual = resolver_precio_manual(
+                data.get("precio"), data.get("precio_incluye_iva"),
+                descuento, impuesto)
+            if base_manual is not None:
+                descuento = 0
+            item = {
                 "cantidad": cantidad, "descuento": descuento,
                 "descripcion": descripcion, "impuesto": impuesto,
-                "precio_sin_iva": precio,
-                "precio_con_descuento": precio_con_desc,
-                "monto_iva": monto_iva,
-                "precio_venta": round(precio_con_desc * (impuesto / 100 + 1), 2),
-                "subtotal": round(precio_con_desc * cantidad, 2),
-                "total_sin_dcto": round(precio * cantidad, 2),
-                "peso_item": round(cantidad * peso, 2),
             }
+            if base_manual is not None:
+                item["precio_manual"] = True
+            item.update(calcular_item(
+                base_manual if base_manual is not None else precio,
+                cantidad, descuento, impuesto, peso))
+            carrito["productos"][fi_codigo] = item
             redis_cache.guardar_carrito(req.flow_token, carrito)
         except Exception as exc:
             return req.respond(screen="PRODUCTO", data=data_producto(carrito, error=str(exc)))
