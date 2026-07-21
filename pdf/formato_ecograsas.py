@@ -1,6 +1,7 @@
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 )
@@ -20,6 +21,23 @@ def _money(valor, dec=2):
     """Formato europeo: 1.426,00 (miles con punto, decimales con coma)."""
     s = f"{valor:,.{dec}f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+TOTAL_BOX_ANCHO = 150
+_TOTAL_BOX_PADDING = 12  # 6pt por lado, padding default de celda
+
+
+def _fuente_total(texto, max_size=18, min_size=8):
+    """Tamaño de fuente más grande (<= max_size) con el que el monto cabe en la caja.
+
+    Un monto no tiene espacios, así que ReportLab no puede envolverlo: si no
+    cabe a 18pt, se salía de la caja de "Total Pedido". Se encoge de a 1pt.
+    """
+    disponible = TOTAL_BOX_ANCHO - _TOTAL_BOX_PADDING
+    size = max_size
+    while size > min_size and stringWidth(texto, "Helvetica-Bold", size) > disponible:
+        size -= 1
+    return size
 
 
 def generar(filename, pedido: dict, logo_path=None, preliminar: bool = False):
@@ -152,9 +170,14 @@ def generar(filename, pedido: dict, logo_path=None, preliminar: bool = False):
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
     ]))
+    total_txt = _money(pedido.get("total_neto", 0))
+    tam_total = _fuente_total(total_txt)
+    estilo_total = ParagraphStyle(name="TotalPedido", fontName="Helvetica-Bold",
+                                  fontSize=tam_total, leading=tam_total + 2,
+                                  alignment=1)
     total_box = Table([[Paragraph("Total Pedido $.", styles["Etiqueta"])],
-                       [Paragraph(_money(pedido.get("total_neto", 0)), styles["TituloDoc"])]],
-                      colWidths=[150])
+                       [Paragraph(total_txt, estilo_total)]],
+                      colWidths=[TOTAL_BOX_ANCHO])
     total_box.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.5, colors.black),
         ("BACKGROUND", (0, 0), (-1, -1), colors.lightgrey),
