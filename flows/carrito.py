@@ -27,7 +27,8 @@ def formato_carrito(carrito: dict, agregado: Optional[str] = None) -> str:
     lineas = []
     for cod, p in prods.items():
         desc_str = f" (-{p['descuento']}%)" if p.get("descuento") else ""
-        lineas.append(f"• {cod} × {p['cantidad']}{desc_str} = ${p['subtotal']:.2f}")
+        manual_str = " ✏️" if p.get("precio_manual") else ""
+        lineas.append(f"• {cod} × {p['cantidad']}{desc_str}{manual_str} = ${p['subtotal']:.2f}")
     cuerpo = "\n".join(lineas)
 
     if agregado:

@@ -81,6 +81,18 @@ def test_data_producto_con_agregado():
     assert d["tiene_items"] is True
 
 
+def test_item_con_precio_manual_lleva_marcador():
+    c = _carrito(ABC123={"cantidad": 5, "descuento": 0, "subtotal": 62.5,
+                         "precio_manual": True})
+    assert formato_carrito(c) == "• ABC123 × 5 ✏️ = $62.50"
+
+
+def test_item_sin_precio_manual_no_lleva_marcador():
+    c = _carrito(ABC123={"cantidad": 5, "descuento": 0, "subtotal": 62.5,
+                         "precio_manual": False})
+    assert formato_carrito(c) == "• ABC123 × 5 = $62.50"
+
+
 if __name__ == "__main__":
     test_sin_productos()
     test_un_producto_sin_descuento()
@@ -92,4 +104,6 @@ if __name__ == "__main__":
     test_data_producto_con_items_marca_tiene_items()
     test_data_producto_con_error()
     test_data_producto_con_agregado()
+    test_item_con_precio_manual_lleva_marcador()
+    test_item_sin_precio_manual_no_lleva_marcador()
     print("OK: formato_carrito.")
