@@ -59,9 +59,43 @@ def test_footer_sin_es_ultimo():
     assert "es_ultimo" not in footer["on-click-action"]["payload"]
 
 
+def _form(prod):
+    return next(c for c in _hijos(prod) if c.get("type") == "Form")
+
+
+def test_form_tiene_campo_precio_opcional():
+    form = _form(_producto(_cargar()))
+    precio = next((h for h in form["children"] if h.get("name") == "precio"), None)
+    assert precio is not None, "Falta el TextInput 'precio' en form_producto"
+    assert precio["type"] == "TextInput"
+    assert precio["input-type"] == "number"
+    assert precio["required"] is False
+
+
+def test_form_tiene_radio_incluye_iva():
+    form = _form(_producto(_cargar()))
+    radio = next((h for h in form["children"]
+                  if h.get("name") == "precio_incluye_iva"), None)
+    assert radio is not None, "Falta el RadioButtonsGroup 'precio_incluye_iva'"
+    assert radio["type"] == "RadioButtonsGroup"
+    assert radio["required"] is False
+    assert [o["id"] for o in radio["data-source"]] == ["con_iva", "sin_iva"]
+
+
+def test_footer_pasa_precio_y_radio():
+    footer = next(c for c in _hijos(_producto(_cargar()))
+                  if c.get("type") == "Footer")
+    payload = footer["on-click-action"]["payload"]
+    assert payload.get("precio") == "${form.precio}"
+    assert payload.get("precio_incluye_iva") == "${form.precio_incluye_iva}"
+
+
 if __name__ == "__main__":
     test_producto_declara_tiene_items()
     test_embedded_link_totalizar_condicional()
     test_no_existe_checkbox_es_ultimo()
     test_footer_sin_es_ultimo()
+    test_form_tiene_campo_precio_opcional()
+    test_form_tiene_radio_incluye_iva()
+    test_footer_pasa_precio_y_radio()
     print("OK: boton Totalizar en PRODUCTO.")

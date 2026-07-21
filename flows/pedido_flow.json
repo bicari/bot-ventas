@@ -140,6 +140,23 @@
                 "name": "descuento",
                 "input-type": "number",
                 "required": false
+              },
+              {
+                "type": "TextInput",
+                "label": "Precio (opcional)",
+                "name": "precio",
+                "input-type": "number",
+                "required": false
+              },
+              {
+                "type": "RadioButtonsGroup",
+                "label": "¿El precio incluye IVA?",
+                "name": "precio_incluye_iva",
+                "required": false,
+                "data-source": [
+                  { "id": "con_iva", "title": "Sí, IVA incluido" },
+                  { "id": "sin_iva", "title": "No, es precio base" }
+                ]
               }
             ]
           },
@@ -161,7 +178,9 @@
                 "action":    "add_product",
                 "codigo":    "${form.codigo}",
                 "cantidad":  "${form.cantidad}",
-                "descuento": "${form.descuento}"
+                "descuento": "${form.descuento}",
+                "precio":    "${form.precio}",
+                "precio_incluye_iva": "${form.precio_incluye_iva}"
               }
             }
           }
