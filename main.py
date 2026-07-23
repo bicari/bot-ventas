@@ -443,6 +443,8 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
 
     # ── remove_product: quitar item del carrito ───────────────────────────────
     if action == "remove_product":
+        # Sin .upper(): el valor viene del Dropdown con las claves exactas del
+        # carrito (emitidas por el servidor), no es texto libre como en add_product.
         codigo = (data.get("eliminar") or "").strip()
         # pop con default: doble toque o carrito expirado no deben reventar.
         carrito["productos"].pop(codigo, None)
