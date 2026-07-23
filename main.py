@@ -441,6 +441,15 @@ def flow_pedido_endpoint(_: WhatsApp, req: FlowRequest) -> FlowResponse:
             data=data_producto(carrito, agregado=f"{fi_codigo} × {cantidad}"),
         )
 
+    # ── remove_product: quitar item del carrito ───────────────────────────────
+    if action == "remove_product":
+        codigo = (data.get("eliminar") or "").strip()
+        # pop con default: doble toque o carrito expirado no deben reventar.
+        carrito["productos"].pop(codigo, None)
+        redis_cache.guardar_carrito(req.flow_token, carrito)
+        print(f"[FLOW] remove_product codigo={codigo}")
+        return req.respond(screen="PRODUCTO", data=data_producto(carrito, eliminado=codigo))
+
     # ── totalizar: calcular totales y navegar a RESUMEN ───────────────────────
     if action == "totalizar":
         if not carrito.get("productos"):
