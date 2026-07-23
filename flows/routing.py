@@ -22,7 +22,7 @@ def inferir_accion_flow(accion: Optional[str], pantalla: str, data: dict) -> Opt
         data: payload recibido (``req.raw["data"]``).
 
     Returns:
-        ``"select_client"``, ``"add_product"``, ``"totalizar"`` o ``None`` si es un
+        ``"select_client"``, ``"add_product"``, ``"totalizar"``, ``"remove_product"`` o ``None`` si es un
         refresco/BACK sin datos de formulario que procesar.
     """
     if accion:
@@ -33,4 +33,6 @@ def inferir_accion_flow(accion: Optional[str], pantalla: str, data: dict) -> Opt
         return "add_product"
     if pantalla == "PRODUCTO" and data.get("totalizar"):
         return "totalizar"
+    if pantalla == "PRODUCTO" and data.get("eliminar"):
+        return "remove_product"
     return None

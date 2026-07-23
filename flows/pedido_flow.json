@@ -98,6 +98,19 @@
         "tiene_items": {
           "type": "boolean",
           "__example__": false
+        },
+        "items_eliminar": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "ABC123", "title": "ABC123 × 5" }
+          ]
         }
       },
       "layout": {
@@ -115,6 +128,26 @@
             "type": "TextBody",
             "text": "${data.error}",
             "visible": "${data.show_error}"
+          },
+          {
+            "type": "Form",
+            "name": "form_eliminar",
+            "children": [
+              {
+                "type": "Dropdown",
+                "label": "🗑️ Eliminar item",
+                "name": "eliminar_item",
+                "data-source": "${data.items_eliminar}",
+                "required": false,
+                "visible": "${data.tiene_items}",
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "eliminar": "${form.eliminar_item}"
+                  }
+                }
+              }
+            ]
           },
           {
             "type": "Form",

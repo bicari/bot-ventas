@@ -55,6 +55,7 @@ def test_data_producto_vacio():
         "error": " ",
         "show_error": False,
         "tiene_items": False,
+        "items_eliminar": [],
     }
 
 
@@ -119,6 +120,43 @@ def test_item_sin_precio_manual_no_lleva_marcador():
     assert formato_carrito(c) == "• ABC123 × 5 = $62.50"
 
 
+def test_eliminado_antepuesto():
+    c = _carrito(XYZ={"cantidad": 3, "descuento": 0, "subtotal": 30.0})
+    out = formato_carrito(c, eliminado="ABC123")
+    assert out == "🗑️ Eliminado: ABC123\n\n• XYZ × 3 = $30.00"
+
+
+def test_eliminado_del_ultimo_item_se_muestra_con_carrito_vacio():
+    """A diferencia de 'agregado', borrar el último item deja el carrito
+    vacío y la confirmación SÍ debe verse."""
+    out = formato_carrito({"productos": {}}, eliminado="ABC123")
+    assert out == "🗑️ Eliminado: ABC123\n\nSin productos agregados aún."
+
+
+def test_data_producto_items_eliminar_vacio():
+    d = data_producto({"productos": {}})
+    assert d["items_eliminar"] == []
+
+
+def test_data_producto_items_eliminar_con_items():
+    c = _carrito(
+        ABC123={"cantidad": 5, "descuento": 0, "subtotal": 1250.0},
+        XYZ={"cantidad": 3, "descuento": 0, "subtotal": 30.0},
+    )
+    d = data_producto(c)
+    assert d["items_eliminar"] == [
+        {"id": "ABC123", "title": "ABC123 × 5"},
+        {"id": "XYZ", "title": "XYZ × 3"},
+    ]
+
+
+def test_data_producto_con_eliminado():
+    c = _carrito(XYZ={"cantidad": 3, "descuento": 0, "subtotal": 30.0})
+    d = data_producto(c, eliminado="ABC123")
+    assert d["items_texto"].startswith("🗑️ Eliminado: ABC123")
+    assert d["tiene_items"] is True
+
+
 if __name__ == "__main__":
     test_sin_productos()
     test_un_producto_sin_descuento()
@@ -135,4 +173,9 @@ if __name__ == "__main__":
     test_construir_pedido_sin_comentario_queda_vacio()
     test_item_con_precio_manual_lleva_marcador()
     test_item_sin_precio_manual_no_lleva_marcador()
+    test_eliminado_antepuesto()
+    test_eliminado_del_ultimo_item_se_muestra_con_carrito_vacio()
+    test_data_producto_items_eliminar_vacio()
+    test_data_producto_items_eliminar_con_items()
+    test_data_producto_con_eliminado()
     print("OK: formato_carrito.")
