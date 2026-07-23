@@ -47,8 +47,7 @@ def test_embedded_link_totalizar_condicional():
 
 
 def test_no_existe_checkbox_es_ultimo():
-    prod = _producto(_cargar())
-    form = next(c for c in _hijos(prod) if c.get("type") == "Form")
+    form = _form(_producto(_cargar()))
     nombres = {h.get("name") for h in form["children"]}
     assert "es_ultimo" not in nombres
 
@@ -59,8 +58,11 @@ def test_footer_sin_es_ultimo():
     assert "es_ultimo" not in footer["on-click-action"]["payload"]
 
 
-def _form(prod):
-    return next(c for c in _hijos(prod) if c.get("type") == "Form")
+def _form(prod, nombre="form_producto"):
+    return next(
+        c for c in _hijos(prod)
+        if c.get("type") == "Form" and c.get("name") == nombre
+    )
 
 
 def test_form_tiene_campo_precio_opcional():
@@ -90,6 +92,38 @@ def test_footer_pasa_precio_y_radio():
     assert payload.get("precio_incluye_iva") == "${form.precio_incluye_iva}"
 
 
+def test_producto_declara_items_eliminar():
+    prod = _producto(_cargar())
+    campo = prod["data"].get("items_eliminar", {})
+    assert campo.get("type") == "array"
+    assert "__example__" in campo
+
+
+def test_form_eliminar_con_dropdown():
+    form = _form(_producto(_cargar()), nombre="form_eliminar")
+    dd = next(h for h in form["children"] if h.get("type") == "Dropdown")
+    assert dd["name"] == "eliminar_item"
+    assert dd["data-source"] == "${data.items_eliminar}"
+    assert dd.get("required") is False
+    assert dd.get("visible") == "${data.tiene_items}"
+
+
+def test_dropdown_eliminar_dispara_data_exchange():
+    form = _form(_producto(_cargar()), nombre="form_eliminar")
+    dd = next(h for h in form["children"] if h.get("type") == "Dropdown")
+    accion = dd["on-select-action"]
+    assert accion["name"] == "data_exchange"
+    assert accion["payload"] == {"eliminar": "${form.eliminar_item}"}
+
+
+def test_form_eliminar_antes_de_form_producto():
+    """El selector de borrado va pegado al texto del carrito, encima del
+    formulario de agregar."""
+    hijos = _hijos(_producto(_cargar()))
+    nombres = [c.get("name") for c in hijos if c.get("type") == "Form"]
+    assert nombres == ["form_eliminar", "form_producto"]
+
+
 if __name__ == "__main__":
     test_producto_declara_tiene_items()
     test_embedded_link_totalizar_condicional()
@@ -98,4 +132,8 @@ if __name__ == "__main__":
     test_form_tiene_campo_precio_opcional()
     test_form_tiene_radio_incluye_iva()
     test_footer_pasa_precio_y_radio()
+    test_producto_declara_items_eliminar()
+    test_form_eliminar_con_dropdown()
+    test_dropdown_eliminar_dispara_data_exchange()
+    test_form_eliminar_antes_de_form_producto()
     print("OK: boton Totalizar en PRODUCTO.")
