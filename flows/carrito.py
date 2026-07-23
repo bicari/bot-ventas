@@ -9,31 +9,41 @@ incrustadas en texto estatico).
 from typing import Optional
 
 
-def formato_carrito(carrito: dict, agregado: Optional[str] = None) -> str:
+def formato_carrito(
+    carrito: dict,
+    agregado: Optional[str] = None,
+    eliminado: Optional[str] = None,
+) -> str:
     """Genera el texto del carrito.
 
     Args:
         carrito: dict con clave ``productos`` (dict de codigo -> datos).
         agregado: etiqueta del producto recien agregado (p.ej. ``"ABC123 × 5"``)
             para anteponer una linea de confirmacion; ``None`` para no mostrarla.
+        eliminado: codigo del producto recien eliminado, para anteponer la
+            linea ``🗑️ Eliminado: ...``. A diferencia de ``agregado``, se
+            muestra aunque el carrito quede vacio (caso: borrar el ultimo item).
 
     Returns:
         Texto multilinea del carrito, o el mensaje de carrito vacio.
     """
     prods = carrito.get("productos", {})
+
+    prefijo = ""
+    if agregado and prods:
+        prefijo = f"✅ Agregado: {agregado}\n\n"
+    elif eliminado:
+        prefijo = f"🗑️ Eliminado: {eliminado}\n\n"
+
     if not prods:
-        return "Sin productos agregados aún."
+        return f"{prefijo}Sin productos agregados aún."
 
     lineas = []
     for cod, p in prods.items():
         desc_str = f" (-{p['descuento']}%)" if p.get("descuento") else ""
         manual_str = " ✏️" if p.get("precio_manual") else ""
         lineas.append(f"• {cod} × {p['cantidad']}{desc_str}{manual_str} = ${p['subtotal']:.2f}")
-    cuerpo = "\n".join(lineas)
-
-    if agregado:
-        return f"✅ Agregado: {agregado}\n\n{cuerpo}"
-    return cuerpo
+    return prefijo + "\n".join(lineas)
 
 
 def construir_pedido(carrito: dict, respuesta: dict) -> dict:
@@ -53,14 +63,24 @@ def construir_pedido(carrito: dict, respuesta: dict) -> dict:
     }
 
 
-def data_producto(carrito: dict, error: Optional[str] = None, agregado: Optional[str] = None) -> dict:
+def data_producto(
+    carrito: dict,
+    error: Optional[str] = None,
+    agregado: Optional[str] = None,
+    eliminado: Optional[str] = None,
+) -> dict:
     """Arma el bloque ``data`` de la pantalla PRODUCTO del Flow.
 
-    Incluye ``tiene_items``, que controla la visibilidad del botón "Totalizar".
+    Incluye ``tiene_items`` (visibilidad de "Totalizar" y del Dropdown de
+    borrado) e ``items_eliminar`` (data-source del Dropdown "Eliminar item").
     """
+    prods = carrito.get("productos", {})
     return {
-        "items_texto": formato_carrito(carrito, agregado=agregado),
+        "items_texto": formato_carrito(carrito, agregado=agregado, eliminado=eliminado),
         "error": f"⚠️ {error}" if error else " ",
         "show_error": bool(error),
-        "tiene_items": bool(carrito.get("productos")),
+        "tiene_items": bool(prods),
+        "items_eliminar": [
+            {"id": cod, "title": f"{cod} × {p['cantidad']}"} for cod, p in prods.items()
+        ],
     }
