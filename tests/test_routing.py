@@ -47,6 +47,21 @@ def test_producto_con_codigo_sigue_siendo_add_product():
     assert inferir_accion_flow(None, "PRODUCTO", data) == "add_product"
 
 
+def test_producto_eliminar_infiere_remove_product():
+    assert inferir_accion_flow(None, "PRODUCTO", {"eliminar": "ABC123"}) == "remove_product"
+
+
+def test_producto_codigo_gana_sobre_eliminar():
+    """Un submit de add_product nunca trae 'eliminar'; si ambos llegaran,
+    add_product tiene prioridad (regla existente primero)."""
+    data = {"codigo": "ABC123", "cantidad": "5", "eliminar": "XYZ"}
+    assert inferir_accion_flow(None, "PRODUCTO", data) == "add_product"
+
+
+def test_producto_eliminar_vacio_es_refresco():
+    assert inferir_accion_flow(None, "PRODUCTO", {"eliminar": ""}) is None
+
+
 if __name__ == "__main__":
     test_cliente_submit_sin_action_infiere_select_client()
     test_producto_submit_sin_action_infiere_add_product()
@@ -55,4 +70,7 @@ if __name__ == "__main__":
     test_producto_sin_datos_es_refresco()
     test_producto_totalizar_infiere_totalizar()
     test_producto_con_codigo_sigue_siendo_add_product()
+    test_producto_eliminar_infiere_remove_product()
+    test_producto_codigo_gana_sobre_eliminar()
+    test_producto_eliminar_vacio_es_refresco()
     print("OK: todas las pruebas de ruteo pasaron.")
